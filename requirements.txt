@@ -1,4 +1,4 @@
 pandas
 streamlit
-plotly=6.6.0
+plotly == 6.6.0
 re
