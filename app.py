@@ -269,7 +269,7 @@ def calculate_summary_table(df):
 
 
 def format_summary_table(summary):
-    formatted = summary.copy()
+    formatted = summary.astype("object").copy()
 
     for col in formatted.columns:
         formatted.loc["Volume", col] = f"{summary.loc['Volume', col]:,.0f} MWh"
