@@ -287,14 +287,17 @@ def format_summary_table(summary):
 
 @st.cache_resource
 def get_container_client():
-    conn_str = (
-        st.secrets.get("AZURE_STORAGE_CONNECTION_STRING")
-        or os.getenv("AZURE_STORAGE_CONNECTION_STRING")
-        )
+    conn_str = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
 
-    if conn_str is None:
-        import os
-        conn_str = os.environ["AZURE_STORAGE_CONNECTION_STRING"]
+    if not conn_str:
+        try:
+            conn_str = st.secrets["AZURE_STORAGE_CONNECTION_STRING"]
+        except Exception:
+            conn_str = None
+
+    if not conn_str:
+        st.error("AZURE_STORAGE_CONNECTION_STRING is not configured.")
+        st.stop()
 
     service = BlobServiceClient.from_connection_string(conn_str)
     return service.get_container_client(CONTAINER_NAME)
