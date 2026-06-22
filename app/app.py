@@ -7,6 +7,7 @@ Created on Tue Jun  2 12:20:35 2026
 
 # app.py
 import re
+import os
 import pandas as pd
 import streamlit as st
 import plotly.graph_objects as go
@@ -14,12 +15,19 @@ import plotly.graph_objects as go
 from azure.storage.blob import BlobServiceClient
 from io import BytesIO
 
-CONTAINER_NAME = "market-data"
+
+
+CONTAINER_NAME = "rw5data-turbine-edmij-entsoe"
 
 
 st.set_page_config(page_title="Timeseries Viewer", layout="wide")
 st.title("Timeseries Viewer")
 
+
+conn_str = (
+    st.secrets.get("AZURE_STORAGE_CONNECTION_STRING")
+    or os.getenv("AZURE_STORAGE_CONNECTION_STRING")
+)
 
 
 def infer_unit(col):
