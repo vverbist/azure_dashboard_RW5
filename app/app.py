@@ -24,12 +24,6 @@ st.set_page_config(page_title="Timeseries Viewer", layout="wide")
 st.title("Timeseries Viewer")
 
 
-conn_str = (
-    st.secrets.get("AZURE_STORAGE_CONNECTION_STRING")
-    or os.getenv("AZURE_STORAGE_CONNECTION_STRING")
-)
-
-
 def infer_unit(col):
     c = col.lower()
 
@@ -293,10 +287,10 @@ def format_summary_table(summary):
 
 @st.cache_resource
 def get_container_client():
-    conn_str = st.secrets.get(
-        "AZURE_STORAGE_CONNECTION_STRING",
-        None,
-    )
+    conn_str = (
+        st.secrets.get("AZURE_STORAGE_CONNECTION_STRING")
+        or os.getenv("AZURE_STORAGE_CONNECTION_STRING")
+        )
 
     if conn_str is None:
         import os
@@ -323,22 +317,35 @@ def read_blob_csv(blob_name):
     return pd.read_csv(BytesIO(blob_bytes))
 
 
+selected_blob = None
+
 with st.sidebar:
     st.header("Data source")
 
     dataset_type = st.radio(
         "Choose dataset",
         ["Monthly file", "YTD export"],
+        key="dataset_type",
     )
 
     if dataset_type == "Monthly file":
+        monthly_blob_names = list_csv_blobs("monthly/")
+
         years = sorted({
             name.split("/")[1]
-            for name in list_csv_blobs("monthly/")
+            for name in monthly_blob_names
             if len(name.split("/")) >= 3
         })
 
-        selected_year = st.selectbox("Year", years)
+        if not years:
+            st.error("No monthly files found in Blob Storage under monthly/YYYY/")
+            st.stop()
+
+        selected_year = st.selectbox(
+            "Year",
+            years,
+            key="selected_year",
+        )
 
         monthly_files = list_csv_blobs(f"monthly/{selected_year}/")
 
@@ -346,52 +353,40 @@ with st.sidebar:
             "Month",
             monthly_files,
             format_func=lambda x: x.split("/")[-1].replace(".csv", ""),
+            key="selected_month_blob",
         )
 
     else:
         export_files = list_csv_blobs("exports/")
 
+        if not export_files:
+            st.error("No YTD export files found in Blob Storage under exports/")
+            st.stop()
+
         selected_blob = st.selectbox(
             "YTD export",
             export_files,
             format_func=lambda x: x.split("/")[-1].replace(".csv", ""),
+            key="selected_ytd_blob",
         )
 
 
-if selected_blob:
-    df = read_blob_csv(selected_blob)
-    st.caption(f"Loaded from Azure Blob Storage: `{selected_blob}`")
+if not selected_blob:
+    st.info("Choose a dataset to start.")
+    st.stop()
 
-    time_candidates = [
-        c for c in df.columns
-        if "timestamp" in c.lower() or "date" in c.lower() or "time" in c.lower()
-    ]
 
-    default_time_col = "timestamp_Ams" if "timestamp_Ams" in df.columns else (
-        time_candidates[0] if time_candidates else df.columns[0]
-    )
-
-    with st.sidebar:
-        time_col = st.selectbox(
-            "Timestamp column",
-            df.columns,
-            index=list(df.columns).index(default_time_col),
-        )
-
-    df[time_col] = pd.to_datetime(df[time_col], errors="coerce")
-    df = df.dropna(subset=[time_col]).sort_values(time_col)
-
-    # Keep the rest of your existing app logic from:
-    # min_date = df[time_col].min().date()
-    # onward
-
+df = read_blob_csv(selected_blob)
+st.caption(f"Loaded from Azure Blob Storage: `{selected_blob}`")
 
 time_candidates = [
     c for c in df.columns
     if "timestamp" in c.lower() or "date" in c.lower() or "time" in c.lower()
 ]
 
-default_time_col = time_candidates[0] if time_candidates else df.columns[0]
+default_time_col = "timestamp_Ams" if "timestamp_Ams" in df.columns else (
+    time_candidates[0] if time_candidates else df.columns[0]
+)
 
 with st.sidebar:
     st.header("Controls")
@@ -400,6 +395,7 @@ with st.sidebar:
         "Timestamp column",
         df.columns,
         index=list(df.columns).index(default_time_col),
+        key="timestamp_column_selector",
     )
 
 df[time_col] = pd.to_datetime(df[time_col], errors="coerce")
@@ -414,6 +410,7 @@ with st.sidebar:
         value=(min_date, max_date),
         min_value=min_date,
         max_value=max_date,
+        key="date_range",
     )
 
     rule = st.selectbox(
@@ -428,6 +425,7 @@ with st.sidebar:
             "ME": "Monthly",
             "YE": "Yearly",
         }[x],
+        key="resampling_frequency",
     )
 
 if len(date_range) == 2:
@@ -442,32 +440,16 @@ numeric_cols = [
     if col != time_col and pd.api.types.is_numeric_dtype(df[col])
 ]
 
-
 summary_table = calculate_summary_table(df)
 
 st.header("Summary")
 
 c1, c2, c3, c4 = st.columns(4)
 
-c1.metric(
-    "Delivered volume",
-    f"{summary_table.loc['Volume', 'Total']:,.0f} MWh",
-)
-
-c2.metric(
-    "Nominated volume",
-    f"{summary_table.loc['Volume', 'EPEX']:,.0f} MWh",
-)
-
-c3.metric(
-    "Total revenue",
-    f"€{summary_table.loc['Revenue', 'Total']:,.0f}",
-)
-
-c4.metric(
-    "Total capture",
-    f"{summary_table.loc['Capture price', 'Total']:,.2f} €/MWh",
-)
+c1.metric("Delivered volume", f"{summary_table.loc['Volume', 'Total']:,.0f} MWh")
+c2.metric("Nominated volume", f"{summary_table.loc['Volume', 'EPEX']:,.0f} MWh")
+c3.metric("Total revenue", f"€{summary_table.loc['Revenue', 'Total']:,.0f}")
+c4.metric("Total capture", f"{summary_table.loc['Capture price', 'Total']:,.2f} €/MWh")
 
 st.header("Breakdown")
 st.dataframe(
@@ -487,8 +469,6 @@ chart_groups = {
         "imbalance_total_revenue",
         "imbalance_short_revenue",
         "imbalance_long_revenue",
-        
-        
     ],
     "3) Imbalance prices": [
         "imbalance_total_revenue",
@@ -497,11 +477,10 @@ chart_groups = {
     ],
 }
 
-
 available_groups = {
     title: [c for c in cols if c in numeric_cols]
     for title, cols in chart_groups.items()
-    }
+}
 
 all_chart_cols = sorted(
     set(c for cols in available_groups.values() for c in cols)
@@ -532,7 +511,7 @@ if all_chart_cols:
                 unit_map,
                 axis_ranges,
             )
+
             st.plotly_chart(fig, use_container_width=True)
 else:
     st.info("None of the predefined chart columns were found.")
-
