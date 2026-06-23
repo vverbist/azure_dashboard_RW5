@@ -1,19 +1,13 @@
 [theme]
 base = "light"
-
-# Brand
-primaryColor = "#00A878"
-
-# Layout
-backgroundColor = "#FFFFFF"
-secondaryBackgroundColor = "#F5F7F8"
-
-# Text
-textColor = "#1F2933"
-
-# Fonts
+primaryColor = "#1673E6"
+backgroundColor = "#F7FAFE"
+secondaryBackgroundColor = "#FFFFFF"
+textColor = "#002B5C"
 font = "sans serif"
 
-# Newer Streamlit versions
-baseRadius = "0.75rem"
-showWidgetBorder = true
+[server]
+headless = false
+
+[browser]
+gatherUsageStats = false
