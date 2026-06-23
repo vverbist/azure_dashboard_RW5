@@ -60,10 +60,15 @@ DIAGNOSTIC_METADATA = {
 
 COLUMN_METADATA.update(DIAGNOSTIC_METADATA)
 
+st.set_page_config(
+    page_title="RW5 Revenue Dashboard",
+    page_icon="⚡",
+    layout="wide",
+)
 
-st.set_page_config(page_title="Timeseries Viewer v1.2", layout="wide")
-st.title("Timeseries Viewer v1.2")
+st.title("RW5 Revenue Dashboard")
 st.caption("Decision-support layer for EPEX, imbalance, revenue, and capture diagnostics.")
+
 
 
 def pretty_name(col):
