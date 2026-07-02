@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>RW5 Revenue Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800;900&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/static/styles.css?v=20260702c" />
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand-block">
+          <div class="brand-eyebrow">Onensys</div>
+          <h1>RW5 Revenue</h1>
+        </div>
+
+        <form id="controls" class="control-stack">
+          <fieldset class="control-group">
+            <legend>Dataset</legend>
+            <label>
+              Source file
+              <select id="dataset"></select>
+            </label>
+
+            <label>
+              Timezone
+              <select id="timestamp_col">
+                <option value="timestamp_Ams">Amsterdam time</option>
+                <option value="timestamp">UTC</option>
+              </select>
+            </label>
+          </fieldset>
+
+          <fieldset class="control-group">
+            <legend>Selected period</legend>
+            <label>
+              Quick period
+              <select id="quick_period">
+                <option value="All data">All data</option>
+                <option value="Last full month">Last full month</option>
+                <option value="Custom range">Custom range</option>
+              </select>
+            </label>
+
+            <div class="date-grid">
+              <label>
+                Start date
+                <input id="start_date" type="date" />
+              </label>
+              <label>
+                End date
+                <input id="end_date" type="date" />
+              </label>
+            </div>
+
+            <label>
+              Resampling
+              <select id="resampling_rule">
+                <option value="Original">Original</option>
+                <option value="15min">15 minutes</option>
+                <option value="h">Hourly</option>
+                <option value="D">Daily</option>
+                <option value="W">Weekly</option>
+                <option value="ME">Monthly</option>
+                <option value="YE">Yearly</option>
+              </select>
+            </label>
+
+            <label>
+              Anomaly rows
+              <input
+                id="row_count"
+                type="number"
+                min="1"
+                max="100"
+                step="1"
+                value="10"
+              />
+            </label>
+          </fieldset>
+
+          <fieldset class="control-group assumption-group">
+            <legend>Greenchoice assumptions</legend>
+            <label>
+              Afslag (%)
+              <input
+                id="greenchoice_afslag_percentage"
+                type="number"
+                min="0"
+                max="100"
+                step="0.5"
+                value="17"
+              />
+            </label>
+
+            <label>
+              Afslag floor (EUR/MWh)
+              <input
+                id="greenchoice_afslag_floor"
+                type="number"
+                step="0.5"
+                value="10"
+              />
+            </label>
+
+            <label>
+              GvO value (EUR/MWh)
+              <input id="gvo_value" type="number" step="0.1" value="0" />
+            </label>
+          </fieldset>
+
+          <fieldset class="control-group assumption-group strike-group">
+            <legend>Strike-price assumption</legend>
+            <label>
+              Strike price (EUR/MWh)
+              <input id="strike_price" type="number" step="1" value="0" />
+            </label>
+          </fieldset>
+
+          <button class="primary-button" type="submit">
+            Refresh dashboard
+          </button>
+        </form>
+      </aside>
+
+      <main class="main-surface">
+        <header class="page-header">
+          <div>
+            <div class="page-eyebrow">
+              Revenue, imbalance, and capture diagnostics
+            </div>
+            <h2>RW5 Revenue Dashboard</h2>
+          </div>
+          <div id="status" class="status-pill">Loading</div>
+        </header>
+
+        <nav class="tabs" aria-label="Dashboard sections">
+          <button class="tab-button active" data-tab="monthly">
+            Monthly overview
+          </button>
+          <button class="tab-button" data-tab="selected-period">
+            Selected period
+          </button>
+          <button class="tab-button" data-tab="quality">Data quality</button>
+        </nav>
+
+        <section id="monthly" class="tab-panel active">
+          <div class="scope-strip">
+            <strong>Full-dataset view</strong>
+            <span
+              >Monthly overview uses the loaded YTD export and is independent of
+              the selected period controls.</span
+            >
+          </div>
+          <section class="content-section">
+            <div class="section-header">
+              <h3>Monthly KPI overview</h3>
+              <div class="download-row" id="monthly-downloads"></div>
+            </div>
+            <div id="monthly-table"></div>
+          </section>
+          <div class="chart-grid">
+            <div id="monthly-chart-1" class="chart-frame"></div>
+            <div id="monthly-chart-2" class="chart-frame"></div>
+            <div id="monthly-chart-3" class="chart-frame"></div>
+          </div>
+        </section>
+
+        <section id="selected-period" class="tab-panel">
+          <div class="scope-strip">
+            <strong>Selected-period view</strong>
+            <span id="selected-period-scope"
+              >Uses the sidebar date range, Greenchoice assumptions, strike
+              price, and resampling choice.</span
+            >
+          </div>
+          <div id="assumption-strip" class="assumption-strip"></div>
+
+          <section class="content-section">
+            <div class="section-header">
+              <h3>Executive summary</h3>
+              <div class="download-row" id="summary-downloads"></div>
+            </div>
+            <div class="context-row" id="context"></div>
+            <div class="kpi-grid" id="kpis"></div>
+            <ul id="narrative" class="narrative-list"></ul>
+          </section>
+
+          <section class="content-section">
+            <div class="section-header">
+              <h3>Commercial breakdown</h3>
+            </div>
+            <div id="commercial-table"></div>
+          </section>
+
+          <section class="content-section">
+            <div class="section-header">
+              <h3>Revenue bridge</h3>
+            </div>
+            <div id="revenue-bridge-chart" class="chart-frame"></div>
+          </section>
+
+          <section class="content-section">
+            <div class="section-header">
+              <h3>Strike-price exposure</h3>
+            </div>
+            <div class="split-grid">
+              <div id="strike-chart" class="chart-frame"></div>
+              <div id="strike-table"></div>
+            </div>
+          </section>
+
+          <section class="content-section">
+            <div class="section-header">
+              <h3>Time-series explorer</h3>
+            </div>
+            <div id="timeseries-plots" class="timeseries-grid"></div>
+          </section>
+
+          <section class="content-section">
+            <div class="section-header">
+              <h3>Action-oriented anomaly finder</h3>
+              <div class="download-row" id="anomaly-downloads"></div>
+            </div>
+            <div id="anomaly-tables" class="stack"></div>
+          </section>
+        </section>
+
+        <section id="quality" class="tab-panel">
+          <div class="scope-strip">
+            <strong>Recognition and checks</strong>
+            <span
+              >Shows selected-period data quality, active assumptions, and
+              columns recognized by the shared Python logic.</span
+            >
+          </div>
+          <div class="split-grid">
+            <section class="content-section">
+              <h3>Data quality checks</h3>
+              <div id="quality-table"></div>
+            </section>
+            <section class="content-section">
+              <h3>Selected assumptions</h3>
+              <div id="assumptions-table"></div>
+            </section>
+          </div>
+          <section class="content-section">
+            <h3>Recognized columns</h3>
+            <div id="recognized-table"></div>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <div id="error-banner" class="error-banner" hidden></div>
+    <script type="module" src="/static/dashboard/main.js?v=20260702d"></script>
+  </body>
+</html>
