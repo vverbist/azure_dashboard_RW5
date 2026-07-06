@@ -215,7 +215,11 @@ export async function refreshDashboard() {
     updateDateBounds(summary);
 
     if (results.monthly.status === "fulfilled") {
-      updateQuickPeriodMonths(results.monthly.value);
+      const periodChanged = updateQuickPeriodMonths(results.monthly.value);
+      if (periodChanged) {
+        await refreshDashboard();
+        return;
+      }
       renderMonthly(results.monthly.value);
     } else {
       renderMonthlyError(

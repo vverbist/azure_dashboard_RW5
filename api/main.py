@@ -30,9 +30,13 @@ app.include_router(downloads.router, prefix="/api")
 
 FRONTEND_DIR = Path(__file__).resolve().parents[1] / "frontend"
 STATIC_DIR = FRONTEND_DIR / "static"
+ASSETS_DIR = Path(__file__).resolve().parents[1] / "assets"
 
 if STATIC_DIR.exists():
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+if ASSETS_DIR.exists():
+    app.mount("/assets", StaticFiles(directory=ASSETS_DIR), name="assets")
 
 
 @app.get("/", include_in_schema=False)

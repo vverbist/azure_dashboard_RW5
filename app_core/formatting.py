@@ -20,6 +20,8 @@ def format_value(value, unit: str, decimals: int = 2) -> str:
         return f"{value:,.3f}"
     if unit == "count":
         return f"{int(value):,}" if pd.notna(value) else "-"
+    if unit == "hours":
+        return f"{value:,.{decimals}f} h"
     return f"{value:,.2f}"
 
 
@@ -44,4 +46,3 @@ def format_generic_metric_table(table: pd.DataFrame) -> pd.DataFrame:
 
 def format_variance_table(table: pd.DataFrame) -> pd.DataFrame:
     return format_generic_metric_table(table)
-

@@ -7,8 +7,10 @@ export function renderEmptyState(targetOrId, message) {
   target.innerHTML = `<div class="empty-state">${escapeHtml(message)}</div>`;
 }
 
-export function renderTable(targetId, rows) {
+export function renderTable(targetId, rows, options = {}) {
   const target = getElement(targetId);
+  const tableClass = options.tableClass || "";
+  const rowClassName = options.rowClassName || (() => "");
 
   if (!rows || !rows.length) {
     renderEmptyState(target, "No data available.");
@@ -18,13 +20,13 @@ export function renderTable(targetId, rows) {
   const columns = Object.keys(rows[0]);
   target.innerHTML = `
     <div class="table-wrap">
-      <table>
+      <table${tableClass ? ` class="${escapeHtml(tableClass)}"` : ""}>
         <thead><tr>${columns.map((col) => `<th>${escapeHtml(col)}</th>`).join("")}</tr></thead>
         <tbody>
           ${rows
             .map(
               (row) => `
-            <tr>${columns.map((col) => `<td>${escapeHtml(formatCell(row[col]))}</td>`).join("")}</tr>
+            <tr${rowClassName(row) ? ` class="${escapeHtml(rowClassName(row))}"` : ""}>${columns.map((col) => `<td>${escapeHtml(formatCell(row[col]))}</td>`).join("")}</tr>
           `,
             )
             .join("")}

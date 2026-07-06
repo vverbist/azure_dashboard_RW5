@@ -3,9 +3,10 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from app_core.anomalies import build_anomaly_table
+from app_core.anomalies import build_anomaly_event_tables, build_anomaly_table
 from app_core.benchmarks import add_greenchoice_benchmark, add_strike_price_diagnostic, summarize_strike_price
 from app_core.calculations import add_diagnostic_columns, calculate_summary_table
+from app_core.metadata import CURRENCY_UNIT
 from app_core.monthly import make_monthly_kpi_table, make_monthly_numeric_table
 
 
@@ -70,19 +71,62 @@ def test_anomaly_table_generation():
     assert "above EPEX revenue" in table["Where is the anomaly?"].iloc[0]
 
 
+def test_anomaly_event_grouping():
+    df = pd.DataFrame({
+        "timestamp_Ams": pd.to_datetime([
+            "2026-01-01 00:00",
+            "2026-01-01 00:15",
+            "2026-01-01 01:00",
+        ]),
+        "delivered_volume_mwh": [10.0, 8.0, 11.0],
+        "nominated_volume_mwh": [12.0, 10.0, 9.0],
+        "epex_eur_per_mwh": [-5.0, -4.0, 55.0],
+        "epex_revenue": [-60.0, -40.0, 495.0],
+        "imbalance_total_revenue": [-20.0, -30.0, 60.0],
+        "total_revenue": [-80.0, -70.0, 555.0],
+    })
+    df = add_diagnostic_columns(df)
+    df = add_greenchoice_benchmark(df, "delivered_volume_mwh", "epex_eur_per_mwh", 0.17, 10.0, 0.0)
+    df = add_strike_price_diagnostic(df, "epex_eur_per_mwh", "nominated_volume_mwh", 0.0)
+
+    tables = build_anomaly_event_tables(df, "timestamp_Ams", row_count=10)
+    events = tables["negative-price-events"]["rows"]
+
+    assert len(events) == 1
+    assert events.iloc[0]["Periods"] == 2
+    assert events.iloc[0]["Likely driver"] == "Negative EPEX exposure"
+    assert "lasted 0.50 h" in events.iloc[0]["What happened?"]
+
+
 def test_monthly_kpi_table_generation():
     df = analysis_df()
     kpi = make_monthly_kpi_table(df, "timestamp_Ams")
     numeric = make_monthly_numeric_table(df, "timestamp_Ams")
 
     total_revenue_row = kpi[kpi["KPI"] == "Total revenue"].iloc[0]
-    assert total_revenue_row["Jan 2026"] == "€1,210"
-    assert total_revenue_row["Feb 2026"] == "€-90"
-    assert total_revenue_row["YTD total"] == "€1,120"
+    assert total_revenue_row["Jan 2026"] == f"{CURRENCY_UNIT}1,210"
+    assert total_revenue_row["Feb 2026"] == f"{CURRENCY_UNIT}-90"
+    assert total_revenue_row["YTD total"] == f"{CURRENCY_UNIT}1,120"
+
+    epex_row = kpi[kpi["KPI"] == "EPEX-only revenue"].iloc[0]
+    assert epex_row["Jan 2026"] == f"{CURRENCY_UNIT}1,170"
+
+    short_volume_row = kpi[kpi["KPI"] == "Imbalance volume short"].iloc[0]
+    long_volume_row = kpi[kpi["KPI"] == "Imbalance volume long"].iloc[0]
+    assert short_volume_row["Feb 2026"] == "2 MWh"
+    assert long_volume_row["Jan 2026"] == "1 MWh"
+
+    below_hours_row = kpi[kpi["KPI"] == "Below-strike hours"].iloc[0]
+    assert below_hours_row["Jan 2026"] == "0.00 h"
+    assert below_hours_row["Feb 2026"] == "0.25 h"
+
+    assert "Net imbalance volume" not in kpi["KPI"].tolist()
+    assert "Greenchoice benchmark" in kpi["KPI"].tolist()
     assert numeric.loc[numeric["Month"] == "2026-01", "Total revenue EUR"].iloc[0] == pytest.approx(1210.0)
+    assert numeric.loc[numeric["Month"] == "2026-01", "Total capture price EUR/MWh"].iloc[0] == pytest.approx(1210.0 / 22.0)
+    assert numeric.loc[numeric["Month"] == "2026-02", "Below-strike hours"].iloc[0] == pytest.approx(0.25)
 
 
 def test_shared_core_does_not_import_streamlit():
     for path in Path("app_core").glob("*.py"):
         assert "import streamlit" not in path.read_text(encoding="utf-8")
-

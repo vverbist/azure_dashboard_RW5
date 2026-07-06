@@ -1,7 +1,7 @@
 const dashboardState = {
   dataset: "",
   timestamp_col: "timestamp_Ams",
-  quick_period: "All data",
+  quick_period: "Last full month",
   start_date: "",
   end_date: "",
   resampling_rule: "Original",

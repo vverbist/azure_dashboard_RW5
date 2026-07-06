@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from app_core.anomalies import build_anomaly_table
+from app_core.anomalies import build_anomaly_event_tables, build_anomaly_table
 from app_core.metadata import ANOMALY_SPECS
 from app_core.serialization import dataframe_records
 
@@ -25,6 +25,18 @@ def build_tables(df, time_col: str, row_count: int, anomaly_type: str):
     return tables
 
 
+def build_event_tables(df, time_col: str, row_count: int):
+    tables = build_anomaly_event_tables(df, time_col, row_count)
+    return {
+        key: {
+            "label": table["label"],
+            "description": table["description"],
+            "rows": dataframe_records(table["rows"]),
+        }
+        for key, table in tables.items()
+    }
+
+
 @router.get("/anomalies")
 def get_anomalies(
     anomaly_type: str = Query(default="all", description=f"One of: all, {', '.join(ANOMALY_SPECS)}"),
@@ -37,5 +49,5 @@ def get_anomalies(
         "dataset": blob_name,
         "anomaly_type": anomaly_type,
         "tables": build_tables(df, query.settings.timestamp_col, query.row_count, anomaly_type),
+        "event_tables": build_event_tables(df, query.settings.timestamp_col, query.row_count),
     }
-

@@ -156,8 +156,18 @@ export function updateQuickPeriodMonths(monthly) {
     .join("");
   quickPeriod.value = fixed.some((item) => item.value === current)
     ? current
-    : "All data";
+    : "Last full month";
   setStateValue("quick_period", quickPeriod.value);
+
+  const before = getState();
+  if (
+    quickPeriod.value === "Last full month" ||
+    quickPeriod.value.startsWith("month:")
+  ) {
+    applyQuickPeriod();
+  }
+  const after = getState();
+  return before.start_date !== after.start_date || before.end_date !== after.end_date;
 }
 
 export function updateTimestampOptions(options) {
@@ -240,7 +250,7 @@ export function bindControlEvents({ onRefresh }) {
       fullBounds: null,
       monthPeriods: [],
     });
-    writeControl("quick_period", "All data");
+    writeControl("quick_period", "Last full month");
     writeControl("start_date", "");
     writeControl("end_date", "");
     onRefresh();

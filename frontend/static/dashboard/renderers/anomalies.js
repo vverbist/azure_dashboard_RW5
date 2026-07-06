@@ -8,28 +8,29 @@ function anomalyTableId(key, index) {
   return `anomaly-${safeDomId(key)}-${index}`;
 }
 
-export function renderAnomalies(payload) {
-  const tables = payload?.tables || {};
-  const entries = Object.entries(tables);
-  const target = getElement("anomaly-tables");
+function anomalyEventTableId(key, index) {
+  return `anomaly-event-${safeDomId(key)}-${index}`;
+}
+
+function renderTableGroup(targetId, entries, tableIdFor, emptyMessage) {
+  const target = getElement(targetId);
 
   if (!entries.length) {
-    renderEmptyState(target, "No anomaly tables available.");
-    renderDownloads("anomaly-downloads", []);
+    renderEmptyState(target, emptyMessage);
     return;
   }
 
   target.innerHTML = entries
     .map(([key, table], index) => {
-      const tableId = anomalyTableId(key, index);
+      const tableId = tableIdFor(key, index);
 
       return `
-      <section class="content-section">
+      <section class="content-section anomaly-section">
         <div class="section-header">
           <h3>${escapeHtml(table.label || key)}</h3>
-          <a class="download-link" href="${escapeHtml(urlFor(`/api/downloads/anomalies/${key}`).toString())}">Download</a>
+          ${targetId === "anomaly-tables" ? `<a class="download-link" href="${escapeHtml(urlFor(`/api/downloads/anomalies/${key}`).toString())}">Download</a>` : ""}
         </div>
-        <p>${escapeHtml(table.description || "")}</p>
+        <p class="table-description">${escapeHtml(table.description || "")}</p>
         <div id="${escapeHtml(tableId)}"></div>
       </section>
     `;
@@ -37,8 +38,35 @@ export function renderAnomalies(payload) {
     .join("");
 
   entries.forEach(([key, table], index) => {
-    renderTable(anomalyTableId(key, index), table.rows || []);
+    renderTable(tableIdFor(key, index), table.rows || []);
   });
+}
+
+export function renderAnomalies(payload) {
+  const tables = payload?.tables || {};
+  const eventTables = payload?.event_tables || {};
+  const periodEntries = Object.entries(tables);
+  const eventEntries = Object.entries(eventTables);
+
+  if (!periodEntries.length && !eventEntries.length) {
+    renderEmptyState("anomaly-event-tables", "No anomaly events available.");
+    renderEmptyState("anomaly-tables", "No anomaly tables available.");
+    renderDownloads("anomaly-downloads", []);
+    return;
+  }
+
+  renderTableGroup(
+    "anomaly-event-tables",
+    eventEntries,
+    anomalyEventTableId,
+    "No anomaly events available for the selected period.",
+  );
+  renderTableGroup(
+    "anomaly-tables",
+    periodEntries,
+    anomalyTableId,
+    "No period-level anomaly rows available.",
+  );
 
   renderDownloads("anomaly-downloads", [
     { label: "All anomaly tables", path: "/api/downloads/anomalies/all" },
@@ -46,6 +74,7 @@ export function renderAnomalies(payload) {
 }
 
 export function renderAnomaliesError(message) {
+  renderEmptyState("anomaly-event-tables", message);
   renderEmptyState("anomaly-tables", message);
   renderDownloads("anomaly-downloads", []);
 }

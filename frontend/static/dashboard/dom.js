@@ -33,6 +33,7 @@ const REQUIRED_ELEMENT_IDS = [
   "strike-chart",
   "strike-table",
   "timeseries-plots",
+  "anomaly-event-tables",
   "anomaly-tables",
   "anomaly-downloads",
   "quality-table",

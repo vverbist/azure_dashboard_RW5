@@ -3,8 +3,30 @@ import { renderDownloads } from "./downloads.js";
 import { renderTable, renderTableError } from "./tables.js";
 import { getElement } from "../dom.js";
 
+const MONTHLY_GROUP_STARTS = new Set([
+  "Delivered volume",
+  "EPEX-only revenue",
+  "Imbalance revenue",
+  "Below-strike revenue",
+  "Greenchoice benchmark",
+]);
+
+function monthlyRowClass(row) {
+  const kpi = row?.KPI || "";
+  const classes = ["monthly-kpi-row"];
+
+  if (MONTHLY_GROUP_STARTS.has(kpi)) classes.push("monthly-group-start");
+  if (kpi.includes("capture price")) classes.push("monthly-derived-row");
+  if (kpi === "Greenchoice benchmark") classes.push("monthly-benchmark-row");
+
+  return classes.join(" ");
+}
+
 export function renderMonthly(monthly) {
-  renderTable("monthly-table", monthly?.monthly_kpi_table || []);
+  renderTable("monthly-table", monthly?.monthly_kpi_table || [], {
+    tableClass: "monthly-kpi-table",
+    rowClassName: monthlyRowClass,
+  });
   renderMonthlyCharts(monthly);
   renderDownloads("monthly-downloads", [
     { label: "KPI overview", path: "/api/downloads/monthly-kpi-overview" },
@@ -17,7 +39,7 @@ export function renderMonthlyCharts(monthly) {
   const preferred = [
     "Total revenue EUR",
     "Delivered volume MWh",
-    "Capture price EUR/MWh",
+    "Total capture price EUR/MWh",
   ];
   const metrics = preferred.filter((metric) =>
     monthly?.chart_data?.metrics?.includes(metric),
