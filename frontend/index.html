@@ -4,20 +4,26 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>RW5 Revenue Dashboard</title>
+    <link rel="icon" href="/assets/rotor.ico" sizes="any" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800;900&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/static/styles.css?v=20260702c" />
+    <link rel="stylesheet" href="/static/styles.css?v=20260706b" />
     <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
   </head>
   <body>
     <div class="app-shell">
       <aside class="sidebar">
         <div class="brand-block">
-          <div class="brand-eyebrow">Onensys</div>
+          <img
+            class="brand-logo"
+            src="/assets/onensys_logo.png"
+            alt="Onensys onsite energy systems logo"
+          />
+          <div class="brand-eyebrow">Onsite energy systems</div>
           <h1>RW5 Revenue</h1>
         </div>
 
@@ -44,7 +50,7 @@
               Quick period
               <select id="quick_period">
                 <option value="All data">All data</option>
-                <option value="Last full month">Last full month</option>
+                <option value="Last full month" selected>Last full month</option>
                 <option value="Custom range">Custom range</option>
               </select>
             </label>
@@ -148,6 +154,7 @@
           <button class="tab-button" data-tab="selected-period">
             Selected period
           </button>
+          <button class="tab-button" data-tab="anomalies">Anomalies</button>
           <button class="tab-button" data-tab="quality">Data quality</button>
         </nav>
 
@@ -224,10 +231,28 @@
             <div id="timeseries-plots" class="timeseries-grid"></div>
           </section>
 
+        </section>
+
+        <section id="anomalies" class="tab-panel">
+          <div class="scope-strip">
+            <strong>Selected-period anomaly view</strong>
+            <span
+              >Groups consecutive 15-minute anomalies into events and explains
+              the likely driver where the source data supports it.</span
+            >
+          </div>
+
           <section class="content-section">
             <div class="section-header">
-              <h3>Action-oriented anomaly finder</h3>
+              <h3>Anomaly events</h3>
               <div class="download-row" id="anomaly-downloads"></div>
+            </div>
+            <div id="anomaly-event-tables" class="stack"></div>
+          </section>
+
+          <section class="content-section">
+            <div class="section-header">
+              <h3>Period-level anomaly rows</h3>
             </div>
             <div id="anomaly-tables" class="stack"></div>
           </section>
@@ -260,6 +285,6 @@
     </div>
 
     <div id="error-banner" class="error-banner" hidden></div>
-    <script type="module" src="/static/dashboard/main.js?v=20260702d"></script>
+    <script type="module" src="/static/dashboard/main.js?v=20260706b"></script>
   </body>
 </html>

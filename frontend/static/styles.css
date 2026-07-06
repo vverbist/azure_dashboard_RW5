@@ -6,7 +6,7 @@
   --green-dark: #6fa000;
   --sky: #7db7ff;
   --line: #dce7f5;
-  --bg: #f6f9fd;
+  --bg: #fff8e7;
   --panel: #ffffff;
   --text: #14304d;
   --muted: #60748a;
@@ -52,6 +52,17 @@ select {
   border-bottom: 1px solid rgba(255, 255, 255, 0.16);
   margin-bottom: 22px;
   padding-bottom: 20px;
+}
+
+.brand-logo {
+  background: #fff8e7;
+  border-radius: 6px;
+  display: block;
+  height: auto;
+  margin: 0 0 16px;
+  max-width: 250px;
+  padding: 8px;
+  width: 100%;
 }
 
 .brand-eyebrow,
@@ -375,6 +386,45 @@ th {
 
 td {
   color: var(--text);
+}
+
+.table-description {
+  color: var(--muted);
+  font-weight: 600;
+  margin: 0;
+}
+
+.anomaly-section td:nth-child(7),
+.anomaly-section td:nth-child(8),
+.anomaly-section td:nth-child(9) {
+  max-width: 420px;
+  white-space: normal;
+}
+
+.anomaly-section td:nth-child(6) {
+  font-weight: 850;
+}
+
+.monthly-kpi-table td:first-child {
+  color: var(--navy);
+  font-weight: 850;
+}
+
+.monthly-kpi-table tr.monthly-group-start td {
+  border-top: 2px solid #cfdded;
+}
+
+.monthly-kpi-table tr.monthly-kpi-row:first-child td {
+  border-top: 0;
+}
+
+.monthly-kpi-table tr.monthly-derived-row td:first-child {
+  color: var(--muted);
+  padding-left: 28px;
+}
+
+.monthly-kpi-table tr.monthly-benchmark-row td {
+  background: #fbfff0;
 }
 
 .download-row {
