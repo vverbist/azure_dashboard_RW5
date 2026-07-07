@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "fastapi",
+      "runtimeExecutable": "C:\\Users\\VictorVerbist\\miniforge3\\envs\\rw5-db\\python.exe",
+      "runtimeArgs": ["-m", "uvicorn", "api.main:app", "--port", "8000"],
+      "port": 8000
+    }
+  ]
+}

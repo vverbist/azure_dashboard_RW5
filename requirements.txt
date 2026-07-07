@@ -1,6 +1,4 @@
 pandas
-streamlit
-plotly == 6.6.0
 pyarrow
 python-dotenv
 azure-storage-blob

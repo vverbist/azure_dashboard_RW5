@@ -270,6 +270,17 @@ export async function init() {
     setStatus("Loading datasets");
     const datasetPayload = await loadDatasets();
     populateDatasetOptions(datasetPayload);
+
+    try {
+      // Establish the real date bounds before the first full refresh so the
+      // "Last full month" default doesn't trigger a second full data load.
+      const monthly = await apiGet("/api/monthly", {});
+      updateQuickPeriodMonths(monthly);
+    } catch (_) {
+      // Ignore; refreshDashboard() below will surface a monthly-specific
+      // error and fall back to unfiltered bounds.
+    }
+
     await refreshDashboard();
   } catch (error) {
     setStatus("Error");

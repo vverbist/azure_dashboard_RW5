@@ -1,20 +1,15 @@
 # RW5 Revenue Dashboard
 
-This project now contains two runnable web apps that reuse the same Python business logic:
+FastAPI backend plus a buildless static JS frontend: `api/main.py` serves `frontend/`.
 
-- Streamlit app: `streamlit_app.py` -> `app/app_v2_1.py`
-- FastAPI plus frontend app: `api/main.py` serving `frontend/`
-
-The shared calculation and data-preparation code lives in `app_core/`. Shared modules do not import Streamlit.
+The shared calculation and data-preparation code lives in `app_core/`.
 
 ## Environment Variables
 
-Required for both web apps when loading from Azure Blob Storage:
+Required when loading from Azure Blob Storage:
 
 - `AZURE_STORAGE_CONNECTION_STRING`
 - `AZURE_CONTAINER_NAME` optional, defaults to `rw5data-turbine-edmij-entsoe`
-
-The Streamlit app also still supports `.streamlit/secrets.toml` for `AZURE_STORAGE_CONNECTION_STRING`.
 
 Pipeline-only variables remain compatible with the existing data update script:
 
@@ -28,20 +23,6 @@ Pipeline-only variables remain compatible with the existing data update script:
 
 ```bash
 pip install -r requirements.txt
-```
-
-## Run the Streamlit App Locally
-
-```bash
-streamlit run streamlit_app.py
-```
-
-The existing dashboard UI is preserved in `app/app_v2_1.py`, while calculations are imported from `app_core/`.
-
-## Azure Startup for Streamlit
-
-```bash
-streamlit run streamlit_app.py --server.port 8000 --server.address 0.0.0.0
 ```
 
 ## Run the FastAPI Backend and Frontend Locally
@@ -61,7 +42,7 @@ Open:
 uvicorn api.main:app --host 0.0.0.0 --port 8000
 ```
 
-The frontend is a buildless static app in `frontend/`. FastAPI serves `frontend/index.html` and `frontend/static/*`, so the new app needs only the one Uvicorn startup command in Azure.
+The frontend is a buildless static app in `frontend/`. FastAPI serves `frontend/index.html` and `frontend/static/*`, so the app needs only the one Uvicorn startup command in Azure.
 
 ## FastAPI Endpoints
 
@@ -104,7 +85,7 @@ Run unit tests:
 pytest
 ```
 
-Run a representative CSV validation without Streamlit:
+Run a representative CSV validation without the API:
 
 ```bash
 python scripts/validate_shared_calculations.py data/exports/2026_ytd.csv
@@ -112,6 +93,6 @@ python scripts/validate_shared_calculations.py data/exports/2026_ytd.csv
 
 ## Known Limitations
 
-- The new frontend is a first functional buildless static frontend, not SvelteKit. This avoids adding a Node build chain and keeps Azure hosting to one FastAPI startup command.
+- The frontend is a buildless static frontend, not SvelteKit. This avoids adding a Node build chain and keeps Azure hosting to one FastAPI startup command.
 - Plotly in the frontend is loaded from the Plotly CDN.
 - The FastAPI app reads Azure Blob data per request; server-side caching can be added later if response time becomes an issue.
