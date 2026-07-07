@@ -23,16 +23,16 @@ export function renderTimeseriesChart(payload, targetId, options = {}) {
   }
 
   if (group === "Revenue components") {
-    renderRevenueComponentsChart(payload, targetId);
+    renderRevenueComponentsChart(payload, targetId, options);
     return;
   }
 
   if (group === "Prices") {
-    renderPricesChart(payload, targetId);
+    renderPricesChart(payload, targetId, options);
     return;
   }
 
-  renderDefaultTimeseriesChart(payload, targetId);
+  renderDefaultTimeseriesChart(payload, targetId, options);
 }
 
 export function renderAllTimeseries(results, options = {}) {

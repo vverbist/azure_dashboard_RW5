@@ -49,47 +49,26 @@ CHART_GROUPS = {
 }
 
 ANOMALY_SPECS = {
-    "revenue-upside": {
-        "label": "Revenue upside",
-        "metric": "revenue_vs_epex_calc",
+    "negative-imbalance-revenue": {
+        "label": "Large negative imbalance revenue",
+        "metric": "imbalance_total_revenue",
+        "largest": False,
+        "file_name": "anomaly_negative_imbalance_revenue.csv",
+        "description": "Periods with the largest negative imbalance revenue.",
+    },
+    "positive-imbalance-revenue": {
+        "label": "Large positive imbalance revenue",
+        "metric": "imbalance_total_revenue",
         "largest": True,
-        "file_name": "anomaly_revenue_upside.csv",
-        "description": "Periods where actual revenue most exceeded EPEX nomination revenue.",
+        "file_name": "anomaly_positive_imbalance_revenue.csv",
+        "description": "Periods with the largest positive imbalance revenue.",
     },
-    "revenue-downside": {
-        "label": "Revenue downside",
-        "metric": "revenue_vs_epex_calc",
+    "negative-epex-revenue": {
+        "label": "Negative EPEX revenue",
+        "metric": "epex_revenue",
         "largest": False,
-        "file_name": "anomaly_revenue_downside.csv",
-        "description": "Periods where actual revenue most underperformed EPEX nomination revenue.",
-    },
-    "greenchoice-gap": {
-        "label": "Greenchoice gap",
-        "metric": "revenue_vs_greenchoice_calc",
-        "largest": False,
-        "file_name": "anomaly_greenchoice_gap.csv",
-        "description": "Periods where actual revenue most underperformed the Greenchoice benchmark.",
-    },
-    "largest-imbalance": {
-        "label": "Largest imbalance",
-        "metric": "abs_imbalance_volume_mwh_calc",
-        "largest": True,
-        "file_name": "anomaly_largest_imbalance.csv",
-        "description": "Periods with the largest absolute delivered-versus-nominated imbalance.",
-    },
-    "capture-spread": {
-        "label": "Capture spread",
-        "metric": "capture_spread_vs_epex_calc",
-        "largest": False,
-        "file_name": "anomaly_capture_spread.csv",
-        "description": "Periods with the weakest total capture versus EPEX capture.",
-    },
-    "below-strike": {
-        "label": "Below strike",
-        "metric": "strike_nomination_revenue",
-        "largest": False,
-        "file_name": "anomaly_below_strike.csv",
-        "description": "Below-strike periods with the most negative nomination revenue.",
+        "file_name": "anomaly_negative_epex_revenue.csv",
+        "description": "Periods with the most negative nominated EPEX revenue.",
     },
 }
 
@@ -152,4 +131,3 @@ def timestamp_column_options(df: pd.DataFrame) -> list[str]:
         if col not in known and any(token in col.lower() for token in ["timestamp", "date", "time"])
     ]
     return known + inferred
-

@@ -1,8 +1,8 @@
 import { getElement } from "../dom.js";
-import { chartLayout, getPlotly, showChartEmpty } from "./layout.js";
+import { applyInspectionRange, chartLayout, getPlotly, showChartEmpty } from "./layout.js";
 import { SERIES_LABELS } from "./seriesLabels.js";
 
-export function renderRevenueComponentsChart(payload, targetId) {
+export function renderRevenueComponentsChart(payload, targetId, options = {}) {
   const target = getElement(targetId);
   const componentLabels = [
     SERIES_LABELS.revenue.epex,
@@ -41,7 +41,10 @@ export function renderRevenueComponentsChart(payload, targetId) {
   }
 
   const unit = componentSeries?.[0]?.unit || totalSeries?.unit || "EUR";
-  const layout = chartLayout(payload.group || "Revenue components", unit);
+  const layout = applyInspectionRange(
+    chartLayout(payload.group || "Revenue components", unit),
+    options.inspectionWindow,
+  );
   layout.barmode = "relative";
 
   const plotly = getPlotly(target);

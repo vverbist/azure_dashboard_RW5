@@ -15,6 +15,16 @@ export function chartLayout(title, yTitle) {
   };
 }
 
+export function applyInspectionRange(layout, inspectionWindow) {
+  if (!inspectionWindow?.zoomStart || !inspectionWindow?.zoomEnd) return layout;
+
+  layout.xaxis = {
+    ...(layout.xaxis || {}),
+    range: [inspectionWindow.zoomStart, inspectionWindow.zoomEnd],
+  };
+  return layout;
+}
+
 export function showChartEmpty(targetOrId, message) {
   const target =
     typeof targetOrId === "string" ? getElement(targetOrId) : targetOrId;

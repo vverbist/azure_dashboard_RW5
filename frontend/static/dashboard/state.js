@@ -13,12 +13,16 @@ const dashboardState = {
   dataBounds: null,
   fullBounds: null,
   monthPeriods: [],
+  activeInspection: null,
 };
 
 export function getState() {
   return {
     ...dashboardState,
     monthPeriods: [...dashboardState.monthPeriods],
+    activeInspection: dashboardState.activeInspection
+      ? { ...dashboardState.activeInspection }
+      : null,
   };
 }
 

@@ -43,7 +43,17 @@ def build_anomaly_table(
     def explain(row):
         parts = []
         metric_value = row.get(metric, np.nan)
-        if metric == "revenue_vs_epex_calc":
+        if metric == "imbalance_total_revenue":
+            direction = "positive" if metric_value >= 0 else "negative"
+            parts.append(f"Imbalance revenue is {format_value(metric_value, CURRENCY_UNIT)} ({direction}).")
+            if "imbalance_volume_mwh_calc" in row:
+                imbalance_direction = "long" if row["imbalance_volume_mwh_calc"] >= 0 else "short"
+                parts.append(f"Net imbalance: {format_value(row['imbalance_volume_mwh_calc'], 'MWh')} ({imbalance_direction}).")
+        elif metric == "epex_revenue":
+            parts.append(f"EPEX revenue is {format_value(metric_value, CURRENCY_UNIT)}.")
+            if "nominated_volume_mwh" in row and "epex_eur_per_mwh" in row:
+                parts.append(f"Nominated {format_value(row['nominated_volume_mwh'], 'MWh')} at EPEX {format_value(row['epex_eur_per_mwh'], PRICE_UNIT)}.")
+        elif metric == "revenue_vs_epex_calc":
             direction = "above" if metric_value >= 0 else "below"
             parts.append(f"Total revenue is {format_value(abs(metric_value), '€')} {direction} EPEX revenue.")
             if "imbalance_volume_mwh_calc" in row:
@@ -180,6 +190,8 @@ def _event_record(
 
     return {
         "Event type": event_type,
+        "_event_start": start.isoformat() if pd.notna(start) else None,
+        "_event_end": end.isoformat() if pd.notna(end) else None,
         "Start": _format_timestamp(start),
         "End": _format_timestamp(end),
         "Duration": format_value(duration, "hours"),
@@ -214,51 +226,46 @@ def build_anomaly_event_tables(df: pd.DataFrame, time_col: str, row_count: int =
     source = source.dropna(subset=[time_col]).sort_values(time_col)
 
     specs = []
-    if "is_below_strike" in source.columns:
+    if "imbalance_total_revenue" in source.columns:
+        negative_revenue = source.loc[source["imbalance_total_revenue"] < 0, "imbalance_total_revenue"]
+        positive_revenue = source.loc[source["imbalance_total_revenue"] > 0, "imbalance_total_revenue"]
+
+        if not negative_revenue.empty:
+            negative_threshold = negative_revenue.quantile(0.05)
+            specs.append({
+                "key": "negative-imbalance-revenue-events",
+                "label": "Large negative imbalance revenue events",
+                "description": "Consecutive periods with strongly negative imbalance revenue.",
+                "mask": source["imbalance_total_revenue"] <= negative_threshold,
+                "driver": "Large negative imbalance revenue",
+                "impact_col": "imbalance_total_revenue",
+                "impact_unit": CURRENCY_UNIT,
+                "suggested_check": "Inspect delivered-versus-nominated volume, imbalance direction, and short/long imbalance prices around the event.",
+            })
+
+        if not positive_revenue.empty:
+            positive_threshold = positive_revenue.quantile(0.95)
+            specs.append({
+                "key": "positive-imbalance-revenue-events",
+                "label": "Large positive imbalance revenue events",
+                "description": "Consecutive periods with strongly positive imbalance revenue.",
+                "mask": source["imbalance_total_revenue"] >= positive_threshold,
+                "driver": "Large positive imbalance revenue",
+                "impact_col": "imbalance_total_revenue",
+                "impact_unit": CURRENCY_UNIT,
+                "suggested_check": "Inspect whether long or short imbalance exposure created upside and whether the pattern is repeatable.",
+            })
+
+    if "epex_revenue" in source.columns:
         specs.append({
-            "key": "negative-price-events",
-            "label": "Negative price exposure events",
-            "description": "Consecutive periods where EPEX is below the configured strike price.",
-            "mask": source["is_below_strike"].fillna(False).astype(bool),
-            "driver": "Negative EPEX exposure",
-            "impact_col": "strike_nomination_revenue",
+            "key": "negative-epex-revenue-events",
+            "label": "Negative EPEX revenue events",
+            "description": "Consecutive periods where nominated EPEX revenue is negative.",
+            "mask": source["epex_revenue"] < 0,
+            "driver": "Negative nominated EPEX revenue",
+            "impact_col": "epex_revenue",
             "impact_unit": CURRENCY_UNIT,
-            "suggested_check": "Review nominated volume and whether curtailment or dispatch action was possible during the price event.",
-        })
-    if "abs_imbalance_volume_mwh_calc" in source.columns:
-        threshold = source["abs_imbalance_volume_mwh_calc"].quantile(0.95)
-        threshold = max(threshold, 0)
-        specs.append({
-            "key": "large-imbalance-events",
-            "label": "Large imbalance events",
-            "description": "Consecutive periods where absolute imbalance volume is in the top 5% of the selected period.",
-            "mask": (source["abs_imbalance_volume_mwh_calc"] > 0) & (source["abs_imbalance_volume_mwh_calc"] >= threshold),
-            "driver": "Large delivered-versus-nominated imbalance",
-            "impact_col": "imbalance_total_revenue",
-            "impact_unit": CURRENCY_UNIT,
-            "suggested_check": "Compare nominations against delivered volume and inspect long/short imbalance prices around the event.",
-        })
-    if "revenue_vs_epex_calc" in source.columns:
-        specs.append({
-            "key": "revenue-downside-events",
-            "label": "Revenue downside events",
-            "description": "Consecutive periods where total revenue underperforms EPEX-only revenue.",
-            "mask": source["revenue_vs_epex_calc"] < 0,
-            "driver": "Actual revenue below EPEX-only revenue",
-            "impact_col": "revenue_vs_epex_calc",
-            "impact_unit": CURRENCY_UNIT,
-            "suggested_check": "Inspect imbalance revenue and capture price drivers for the event window.",
-        })
-    if "revenue_vs_greenchoice_calc" in source.columns:
-        specs.append({
-            "key": "benchmark-downside-events",
-            "label": "Greenchoice benchmark downside events",
-            "description": "Consecutive periods where actual revenue is below the Greenchoice benchmark.",
-            "mask": source["revenue_vs_greenchoice_calc"] < 0,
-            "driver": "Actual revenue below Greenchoice benchmark",
-            "impact_col": "revenue_vs_greenchoice_calc",
-            "impact_unit": CURRENCY_UNIT,
-            "suggested_check": "Check whether EPEX price, Greenchoice floor, GvO, or imbalance exposure drove the benchmark gap.",
+            "suggested_check": "Review nominated volume during negative EPEX revenue periods and whether dispatch or curtailment action was possible.",
         })
 
     tables = {}
@@ -266,11 +273,7 @@ def build_anomaly_event_tables(df: pd.DataFrame, time_col: str, row_count: int =
         records = []
         for group in _event_groups(source, spec["mask"], time_col):
             impact = _sum(group, spec["impact_col"])
-            if spec["key"] == "large-imbalance-events":
-                impact = _sum(group, "abs_imbalance_volume_mwh_calc")
-                impact_unit = "MWh"
-            else:
-                impact_unit = spec["impact_unit"]
+            impact_unit = spec["impact_unit"]
             records.append(_event_record(
                 group,
                 time_col,

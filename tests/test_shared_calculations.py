@@ -82,19 +82,28 @@ def test_anomaly_event_grouping():
         "nominated_volume_mwh": [12.0, 10.0, 9.0],
         "epex_eur_per_mwh": [-5.0, -4.0, 55.0],
         "epex_revenue": [-60.0, -40.0, 495.0],
-        "imbalance_total_revenue": [-20.0, -30.0, 60.0],
-        "total_revenue": [-80.0, -70.0, 555.0],
+        "imbalance_total_revenue": [-100.0, -100.0, 60.0],
+        "total_revenue": [-160.0, -140.0, 555.0],
     })
     df = add_diagnostic_columns(df)
     df = add_greenchoice_benchmark(df, "delivered_volume_mwh", "epex_eur_per_mwh", 0.17, 10.0, 0.0)
     df = add_strike_price_diagnostic(df, "epex_eur_per_mwh", "nominated_volume_mwh", 0.0)
 
     tables = build_anomaly_event_tables(df, "timestamp_Ams", row_count=10)
-    events = tables["negative-price-events"]["rows"]
+    assert list(tables) == [
+        "negative-imbalance-revenue-events",
+        "positive-imbalance-revenue-events",
+        "negative-epex-revenue-events",
+    ]
+    assert "benchmark-downside-events" not in tables
+
+    events = tables["negative-imbalance-revenue-events"]["rows"]
 
     assert len(events) == 1
     assert events.iloc[0]["Periods"] == 2
-    assert events.iloc[0]["Likely driver"] == "Negative EPEX exposure"
+    assert events.iloc[0]["_event_start"] == "2026-01-01T00:00:00"
+    assert events.iloc[0]["_event_end"] == "2026-01-01T00:30:00"
+    assert events.iloc[0]["Likely driver"] == "Large negative imbalance revenue"
     assert "lasted 0.50 h" in events.iloc[0]["What happened?"]
 
 

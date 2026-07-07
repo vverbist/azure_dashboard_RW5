@@ -6,11 +6,14 @@ import {
   populateDatasetOptions,
   readControls,
   setupTabs,
+  switchTab,
   updateDateBounds,
   updateQuickPeriodMonths,
   updateTimestampOptions,
 } from "./controls.js";
-import { bindElements, clearError, setStatus, showError } from "./dom.js";
+import { bindElements, clearError, getElement, setStatus, showError } from "./dom.js";
+import { escapeHtml } from "./formatters.js";
+import { updateState } from "./state.js";
 import { renderAssumptionStrip } from "./renderers/assumptions.js";
 import {
   renderContext,
@@ -35,6 +38,9 @@ import { renderWaterfall } from "./charts/waterfallChart.js";
 let initialized = false;
 let refreshToken = 0;
 let activeRefreshController = null;
+let lastTimeseriesResults = [];
+
+const EVENT_WINDOW_PADDING_HOURS = 2;
 
 function beginRefresh() {
   if (activeRefreshController) {
@@ -194,6 +200,71 @@ function renderQuality(result) {
   );
 }
 
+function paddedLocalIso(value, paddingHours) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  date.setHours(date.getHours() + paddingHours);
+
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0"),
+  ].join("-") + `T${[
+    String(date.getHours()).padStart(2, "0"),
+    String(date.getMinutes()).padStart(2, "0"),
+    String(date.getSeconds()).padStart(2, "0"),
+  ].join(":")}`;
+}
+
+function renderInspectionStrip() {
+  const target = getElement("inspection-strip");
+  const inspection = currentState().activeInspection;
+
+  if (!inspection) {
+    target.hidden = true;
+    target.innerHTML = "";
+    return;
+  }
+
+  target.hidden = false;
+  target.innerHTML = `
+    <strong>Inspecting ${escapeHtml(inspection.type || "anomaly event")}</strong>
+    <span>${escapeHtml(inspection.start)} to ${escapeHtml(inspection.end)}</span>
+    <button class="clear-inspection-button" type="button">Clear zoom</button>
+  `;
+  target.querySelector(".clear-inspection-button")?.addEventListener("click", () => {
+    updateState({ activeInspection: null });
+    renderInspectionStrip();
+    renderAllTimeseries(lastTimeseriesResults, {
+      timestampColumn: currentState().timestamp_col,
+    });
+  });
+}
+
+function inspectAnomalyEvent(event) {
+  const { start, end, type } = event.detail || {};
+  const zoomStart = paddedLocalIso(start, -EVENT_WINDOW_PADDING_HOURS);
+  const zoomEnd = paddedLocalIso(end, EVENT_WINDOW_PADDING_HOURS);
+
+  if (!zoomStart || !zoomEnd) return;
+
+  updateState({
+    activeInspection: { start, end, type, zoomStart, zoomEnd },
+  });
+  switchTab("selected-period");
+  setStatus(`Inspecting ${type || "anomaly event"}`);
+  renderInspectionStrip();
+  renderAllTimeseries(lastTimeseriesResults, {
+    timestampColumn: currentState().timestamp_col,
+    inspectionWindow: currentState().activeInspection,
+  });
+
+  getElement("timeseries-plots").scrollIntoView({
+    behavior: "smooth",
+    block: "start",
+  });
+}
+
 export async function refreshDashboard() {
   const refresh = beginRefresh();
 
@@ -239,8 +310,11 @@ export async function refreshDashboard() {
       );
     }
 
+    lastTimeseriesResults = results.timeseries;
+    renderInspectionStrip();
     renderAllTimeseries(results.timeseries, {
       timestampColumn: currentState().timestamp_col,
+      inspectionWindow: currentState().activeInspection,
     });
     renderQuality(results.quality);
 
@@ -264,6 +338,7 @@ export async function init() {
 
   bindElements();
   setupTabs();
+  document.addEventListener("inspect-anomaly-event", inspectAnomalyEvent);
   bindControlEvents({ onRefresh: refreshDashboard });
 
   try {

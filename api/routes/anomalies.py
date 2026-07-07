@@ -11,11 +11,21 @@ from ._common import ApiDashboardQuery, dashboard_query, load_prepared_frames
 router = APIRouter()
 
 
+def anomaly_source_df(df, anomaly_type: str):
+    if anomaly_type == "negative-imbalance-revenue" and "imbalance_total_revenue" in df.columns:
+        return df[df["imbalance_total_revenue"] < 0]
+    if anomaly_type == "positive-imbalance-revenue" and "imbalance_total_revenue" in df.columns:
+        return df[df["imbalance_total_revenue"] > 0]
+    if anomaly_type == "negative-epex-revenue" and "epex_revenue" in df.columns:
+        return df[df["epex_revenue"] < 0]
+    return df
+
+
 def build_tables(df, time_col: str, row_count: int, anomaly_type: str):
     specs = ANOMALY_SPECS if anomaly_type == "all" else {anomaly_type: ANOMALY_SPECS[anomaly_type]}
     tables = {}
     for key, spec in specs.items():
-        source_df = df[df["is_below_strike"]] if key == "below-strike" and "is_below_strike" in df.columns else df
+        source_df = anomaly_source_df(df, key)
         table = build_anomaly_table(source_df, time_col, spec["metric"], row_count, largest=spec["largest"])
         tables[key] = {
             "label": spec["label"],

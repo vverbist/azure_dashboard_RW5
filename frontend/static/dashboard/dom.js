@@ -19,6 +19,7 @@ const REQUIRED_ELEMENT_IDS = [
   "error-banner",
   "selected-period-scope",
   "assumption-strip",
+  "inspection-strip",
   "context",
   "kpis",
   "narrative",
@@ -62,7 +63,7 @@ export function bindElements() {
 }
 
 export function getElement(id) {
-  if (!elements[id]) {
+  if (!elements[id] || !document.body.contains(elements[id])) {
     elements[id] = requireElement(id);
   }
 

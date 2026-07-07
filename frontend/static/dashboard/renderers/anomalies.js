@@ -4,6 +4,8 @@ import { escapeHtml, safeDomId } from "../formatters.js";
 import { renderDownloads } from "./downloads.js";
 import { renderEmptyState, renderTable } from "./tables.js";
 
+const EVENT_METADATA_COLUMNS = ["_event_start", "_event_end"];
+
 function anomalyTableId(key, index) {
   return `anomaly-${safeDomId(key)}-${index}`;
 }
@@ -12,7 +14,42 @@ function anomalyEventTableId(key, index) {
   return `anomaly-event-${safeDomId(key)}-${index}`;
 }
 
-function renderTableGroup(targetId, entries, tableIdFor, emptyMessage) {
+function eventButton(row, key) {
+  if (!row?._event_start || !row?._event_end) return "";
+
+  return `
+    <button
+      class="inspect-event-button"
+      type="button"
+      data-event-key="${escapeHtml(key)}"
+      data-event-start="${escapeHtml(row._event_start)}"
+      data-event-end="${escapeHtml(row._event_end)}"
+      data-event-type="${escapeHtml(row["Event type"] || key)}"
+    >
+      Inspect
+    </button>
+  `;
+}
+
+function bindInspectButtons(target) {
+  target.querySelectorAll(".inspect-event-button").forEach((button) => {
+    button.addEventListener("click", () => {
+      target.dispatchEvent(
+        new CustomEvent("inspect-anomaly-event", {
+          bubbles: true,
+          detail: {
+            key: button.dataset.eventKey,
+            start: button.dataset.eventStart,
+            end: button.dataset.eventEnd,
+            type: button.dataset.eventType,
+          },
+        }),
+      );
+    });
+  });
+}
+
+function renderTableGroup(targetId, entries, tableIdFor, emptyMessage, options = {}) {
   const target = getElement(targetId);
 
   if (!entries.length) {
@@ -38,8 +75,22 @@ function renderTableGroup(targetId, entries, tableIdFor, emptyMessage) {
     .join("");
 
   entries.forEach(([key, table], index) => {
-    renderTable(tableIdFor(key, index), table.rows || []);
+    const isEventTable = options.kind === "events";
+    renderTable(tableIdFor(key, index), table.rows || [], {
+      hiddenColumns: isEventTable ? EVENT_METADATA_COLUMNS : [],
+      extraColumns: isEventTable
+        ? [
+            {
+              key: "Inspect",
+              label: "Inspect",
+              render: (row) => eventButton(row, key),
+            },
+          ]
+        : [],
+    });
   });
+
+  if (options.kind === "events") bindInspectButtons(target);
 }
 
 export function renderAnomalies(payload) {
@@ -60,6 +111,7 @@ export function renderAnomalies(payload) {
     eventEntries,
     anomalyEventTableId,
     "No anomaly events available for the selected period.",
+    { kind: "events" },
   );
   renderTableGroup(
     "anomaly-tables",

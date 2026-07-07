@@ -1,5 +1,5 @@
 import { getElement } from "../dom.js";
-import { chartLayout, getPlotly, showChartEmpty } from "./layout.js";
+import { applyInspectionRange, chartLayout, getPlotly, showChartEmpty } from "./layout.js";
 import { SERIES_LABELS } from "./seriesLabels.js";
 
 const PRICE_LABELS_TO_SHOW = [
@@ -14,7 +14,7 @@ const PRICE_LINE_STYLES = {
   [SERIES_LABELS.prices.shortImbalance]: { color: "#ff7f0e", dash: "solid" },
 };
 
-export function renderPricesChart(payload, targetId) {
+export function renderPricesChart(payload, targetId, options = {}) {
   const target = getElement(targetId);
   const includedSeries = (payload?.series || []).filter((series) =>
     PRICE_LABELS_TO_SHOW.includes(cleanLabel(series.label)),
@@ -43,7 +43,10 @@ export function renderPricesChart(payload, targetId) {
   });
 
   const unit = includedSeries?.[0]?.unit || "EUR/MWh";
-  const layout = chartLayout(payload.group || "Prices", unit);
+  const layout = applyInspectionRange(
+    chartLayout(payload.group || "Prices", unit),
+    options.inspectionWindow,
+  );
   layout.yaxis.zeroline = true;
 
   const plotly = getPlotly(target);

@@ -1,7 +1,7 @@
 import { getElement } from "../dom.js";
-import { chartLayout, getPlotly, showChartEmpty } from "./layout.js";
+import { applyInspectionRange, chartLayout, getPlotly, showChartEmpty } from "./layout.js";
 
-export function renderDefaultTimeseriesChart(payload, targetId) {
+export function renderDefaultTimeseriesChart(payload, targetId, options = {}) {
   const target = getElement(targetId);
   const series = payload?.series || [];
 
@@ -21,7 +21,10 @@ export function renderDefaultTimeseriesChart(payload, targetId) {
     y: item.y,
   }));
   const unit = series?.[0]?.unit || "";
-  const layout = chartLayout(payload.group || "Time-series", unit);
+  const layout = applyInspectionRange(
+    chartLayout(payload.group || "Time-series", unit),
+    options.inspectionWindow,
+  );
 
   if (isRevenue) layout.barmode = "relative";
 

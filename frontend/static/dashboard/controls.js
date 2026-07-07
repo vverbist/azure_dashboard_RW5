@@ -211,16 +211,24 @@ export function populateDatasetOptions(data) {
 export function setupTabs() {
   document.querySelectorAll(".tab-button").forEach((button) => {
     button.addEventListener("click", () => {
-      document
-        .querySelectorAll(".tab-button")
-        .forEach((item) => item.classList.remove("active"));
-      document
-        .querySelectorAll(".tab-panel")
-        .forEach((item) => item.classList.remove("active"));
-      button.classList.add("active");
-      getElement(button.dataset.tab).classList.add("active");
+      switchTab(button.dataset.tab);
     });
   });
+}
+
+export function switchTab(tabId) {
+  const button = document.querySelector(`.tab-button[data-tab="${tabId}"]`);
+  const panel = getElement(tabId);
+
+  document
+    .querySelectorAll(".tab-button")
+    .forEach((item) => item.classList.remove("active"));
+  document
+    .querySelectorAll(".tab-panel")
+    .forEach((item) => item.classList.remove("active"));
+
+  if (button) button.classList.add("active");
+  panel.classList.add("active");
 }
 
 export function bindControlEvents({ onRefresh }) {

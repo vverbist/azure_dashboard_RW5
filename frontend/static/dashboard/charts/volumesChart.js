@@ -1,6 +1,6 @@
 import { getElement } from "../dom.js";
 import { timestampToSelectedLocalString } from "../formatters.js";
-import { chartLayout, getPlotly, showChartEmpty } from "./layout.js";
+import { applyInspectionRange, chartLayout, getPlotly, showChartEmpty } from "./layout.js";
 import { SERIES_LABELS } from "./seriesLabels.js";
 
 export function renderVolumesChart(payload, targetId, options = {}) {
@@ -157,7 +157,10 @@ export function renderVolumesChart(payload, targetId, options = {}) {
     },
   );
 
-  const layout = chartLayout("Volumes", lineA.unit || lineB.unit || "MWh");
+  const layout = applyInspectionRange(
+    chartLayout("Volumes", lineA.unit || lineB.unit || "MWh"),
+    options.inspectionWindow,
+  );
   layout.yaxis.rangemode = "tozero";
 
   const plotly = getPlotly(target);

@@ -14,6 +14,16 @@ from ._common import ApiDashboardQuery, csv_response, dashboard_query, load_prep
 router = APIRouter()
 
 
+def anomaly_source_df(df: pd.DataFrame, anomaly_type: str) -> pd.DataFrame:
+    if anomaly_type == "negative-imbalance-revenue" and "imbalance_total_revenue" in df.columns:
+        return df[df["imbalance_total_revenue"] < 0]
+    if anomaly_type == "positive-imbalance-revenue" and "imbalance_total_revenue" in df.columns:
+        return df[df["imbalance_total_revenue"] > 0]
+    if anomaly_type == "negative-epex-revenue" and "epex_revenue" in df.columns:
+        return df[df["epex_revenue"] < 0]
+    return df
+
+
 @router.get("/downloads/filtered-data")
 def download_filtered_data(query: ApiDashboardQuery = Depends(dashboard_query)):
     _blob_name, _raw, df, _full = load_prepared_frames(query)
@@ -57,7 +67,7 @@ def download_anomaly_table(anomaly_type: str, query: ApiDashboardQuery = Depends
     if anomaly_type == "all":
         tables = []
         for key, spec in ANOMALY_SPECS.items():
-            source_df = df[df["is_below_strike"]] if key == "below-strike" and "is_below_strike" in df.columns else df
+            source_df = anomaly_source_df(df, key)
             table = build_anomaly_table(source_df, query.settings.timestamp_col, spec["metric"], query.row_count, largest=spec["largest"])
             if not table.empty:
                 table = table.copy()
@@ -67,7 +77,6 @@ def download_anomaly_table(anomaly_type: str, query: ApiDashboardQuery = Depends
         return csv_response(combined, "anomaly_tables.csv")
 
     spec = ANOMALY_SPECS[anomaly_type]
-    source_df = df[df["is_below_strike"]] if anomaly_type == "below-strike" and "is_below_strike" in df.columns else df
+    source_df = anomaly_source_df(df, anomaly_type)
     table = build_anomaly_table(source_df, query.settings.timestamp_col, spec["metric"], query.row_count, largest=spec["largest"])
     return csv_response(table, spec["file_name"])
-
