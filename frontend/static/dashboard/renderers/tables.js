@@ -22,25 +22,36 @@ export function renderTable(targetId, rows, options = {}) {
     return;
   }
 
-  const columns = Object.keys(rows[0]).filter((col) => !hiddenColumns.has(col));
-  const allColumns = [
-    ...columns.map((key) => ({ key, label: key, extra: false })),
-    ...extraColumns.map((col) => ({
-      key: col.key,
-      label: col.label || col.key,
-      render: col.render || (() => ""),
-      extra: true,
-    })),
-  ];
+  // An explicit `columns` list takes full control of which columns show and
+  // in what order, bypassing the automatic key discovery below.
+  const allColumns = options.columns
+    ? options.columns.map((col) => ({
+        key: col.key,
+        label: col.label || col.key,
+        render: col.render,
+        extra: Boolean(col.render),
+        sticky: Boolean(col.sticky),
+      }))
+    : [
+        ...Object.keys(rows[0])
+          .filter((col) => !hiddenColumns.has(col))
+          .map((key) => ({ key, label: key, extra: false })),
+        ...extraColumns.map((col) => ({
+          key: col.key,
+          label: col.label || col.key,
+          render: col.render || (() => ""),
+          extra: true,
+        })),
+      ];
   target.innerHTML = `
     <div class="table-wrap">
       <table${tableClass ? ` class="${escapeHtml(tableClass)}"` : ""}>
-        <thead><tr>${allColumns.map((col) => `<th>${escapeHtml(col.label)}</th>`).join("")}</tr></thead>
+        <thead><tr>${allColumns.map((col) => `<th${col.sticky ? ` class="sticky-col"` : ""}>${escapeHtml(col.label)}</th>`).join("")}</tr></thead>
         <tbody>
           ${rows
             .map(
               (row) => `
-            <tr${rowClassName(row) ? ` class="${escapeHtml(rowClassName(row))}"` : ""}>${allColumns.map((col) => `<td>${col.extra ? col.render(row) : renderCell(row, col.key)}</td>`).join("")}</tr>
+            <tr${rowClassName(row) ? ` class="${escapeHtml(rowClassName(row))}"` : ""}>${allColumns.map((col) => `<td${col.sticky ? ` class="sticky-col"` : ""}>${col.extra ? col.render(row) : renderCell(row, col.key)}</td>`).join("")}</tr>
           `,
             )
             .join("")}

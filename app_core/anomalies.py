@@ -171,11 +171,18 @@ def _event_record(
     total_revenue = _sum(group, "total_revenue")
     epex_revenue = _sum(group, "epex_revenue")
     imbalance_revenue = _sum(group, "imbalance_total_revenue")
-    greenchoice_revenue = _sum(group, "greenchoice_revenue")
-    below_strike_revenue = _sum(group, "strike_nomination_revenue")
     avg_epex = _mean(group, "epex_eur_per_mwh")
     min_epex = _min(group, "epex_eur_per_mwh")
     max_epex = _max(group, "epex_eur_per_mwh")
+    avg_imbalance_long_price = _mean(group, "imbalance_long_eur_per_mwh")
+    avg_imbalance_short_price = _mean(group, "imbalance_short_eur_per_mwh")
+
+    if pd.notna(imbalance) and imbalance < 0 and pd.notna(avg_imbalance_short_price):
+        imbalance_price = f"{format_value(avg_imbalance_short_price, PRICE_UNIT)} (short)"
+    elif pd.notna(avg_imbalance_long_price):
+        imbalance_price = f"{format_value(avg_imbalance_long_price, PRICE_UNIT)} (long)"
+    else:
+        imbalance_price = "-"
 
     parts = [
         f"{event_type} lasted {format_value(duration, 'hours')} across {len(group)} periods.",
@@ -192,6 +199,7 @@ def _event_record(
         "Event type": event_type,
         "_event_start": start.isoformat() if pd.notna(start) else None,
         "_event_end": end.isoformat() if pd.notna(end) else None,
+        "_impact_value": None if pd.isna(impact_value) else float(impact_value),
         "Start": _format_timestamp(start),
         "End": _format_timestamp(end),
         "Duration": format_value(duration, "hours"),
@@ -209,8 +217,7 @@ def _event_record(
         "Total revenue": format_value(total_revenue, CURRENCY_UNIT),
         "EPEX-only revenue": format_value(epex_revenue, CURRENCY_UNIT),
         "Imbalance revenue": format_value(imbalance_revenue, CURRENCY_UNIT),
-        "Greenchoice benchmark": format_value(greenchoice_revenue, CURRENCY_UNIT),
-        "Below-strike revenue": format_value(below_strike_revenue, CURRENCY_UNIT),
+        "Imbalance price": imbalance_price,
         "Avg EPEX price": format_value(avg_epex, PRICE_UNIT),
         "Min EPEX price": format_value(min_epex, PRICE_UNIT),
         "Max EPEX price": format_value(max_epex, PRICE_UNIT),
