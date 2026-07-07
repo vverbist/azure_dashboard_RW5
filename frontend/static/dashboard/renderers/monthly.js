@@ -5,10 +5,11 @@ import { getElement } from "../dom.js";
 
 const MONTHLY_GROUP_STARTS = new Set([
   "Delivered volume",
+  "Greenchoice benchmark",
   "EPEX-only revenue",
   "Imbalance revenue",
   "Below-strike revenue",
-  "Greenchoice benchmark",
+  
 ]);
 
 function monthlyRowClass(row) {
@@ -17,7 +18,6 @@ function monthlyRowClass(row) {
 
   if (MONTHLY_GROUP_STARTS.has(kpi)) classes.push("monthly-group-start");
   if (kpi.includes("capture price")) classes.push("monthly-derived-row");
-  if (kpi === "Greenchoice benchmark") classes.push("monthly-benchmark-row");
 
   return classes.join(" ");
 }

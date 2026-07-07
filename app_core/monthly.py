@@ -29,6 +29,7 @@ MONTHLY_KPI_FORMATS = [
     ("Delivered volume", "Delivered volume MWh", "MWh", 0),
     ("Total revenue", "Total revenue EUR", CURRENCY_UNIT, 2),
     ("Total capture price", "Total capture price EUR/MWh", PRICE_UNIT, 2),
+    ("Greenchoice benchmark", "Greenchoice benchmark EUR", CURRENCY_UNIT, 2),
     ("EPEX-only revenue", "EPEX-only revenue EUR", CURRENCY_UNIT, 2),
     ("EPEX-only capture price", "EPEX-only capture price EUR/MWh", PRICE_UNIT, 2),
     ("Imbalance revenue", "Imbalance revenue EUR", CURRENCY_UNIT, 2),
@@ -36,7 +37,7 @@ MONTHLY_KPI_FORMATS = [
     ("Imbalance volume long", "Imbalance volume long MWh", "MWh", 0),
     ("Below-strike revenue", "Below-strike revenue EUR", CURRENCY_UNIT, 2),
     ("Below-strike hours", "Below-strike hours", "hours", 2),
-    ("Greenchoice benchmark", "Greenchoice benchmark EUR", CURRENCY_UNIT, 2),
+    
 ]
 
 
@@ -57,6 +58,7 @@ def calculate_period_numeric(period_df: pd.DataFrame) -> dict[str, float]:
         "Delivered volume MWh": delivered,
         "Total revenue EUR": total_revenue,
         "Total capture price EUR/MWh": safe_div(total_revenue, delivered),
+        "Greenchoice benchmark EUR": total.get("greenchoice_revenue", np.nan),
         "EPEX-only revenue EUR": epex_revenue,
         "EPEX-only capture price EUR/MWh": safe_div(epex_revenue, nominated),
         "Imbalance revenue EUR": total.get("imbalance_total_revenue", np.nan),
@@ -64,7 +66,7 @@ def calculate_period_numeric(period_df: pd.DataFrame) -> dict[str, float]:
         "Imbalance volume long MWh": total.get("volume_long_mwh", np.nan),
         "Below-strike revenue EUR": total.get("strike_nomination_revenue", np.nan),
         "Below-strike hours": count_below_strike_hours(period_df),
-        "Greenchoice benchmark EUR": total.get("greenchoice_revenue", np.nan),
+        
     }
 
 
