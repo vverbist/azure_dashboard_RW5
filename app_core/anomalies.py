@@ -305,3 +305,36 @@ def build_anomaly_event_tables(df: pd.DataFrame, time_col: str, row_count: int =
         }
 
     return tables
+
+
+EVENT_ROW_COLUMNS = [
+    "delivered_volume_mwh",
+    "nominated_volume_mwh",
+    "imbalance_volume_mwh_calc",
+    "epex_eur_per_mwh",
+    "imbalance_long_eur_per_mwh",
+    "imbalance_short_eur_per_mwh",
+    "epex_revenue",
+    "imbalance_total_revenue",
+    "total_revenue",
+]
+
+
+def event_rows_between(df: pd.DataFrame, time_col: str, start, end) -> pd.DataFrame:
+    """Raw (unaggregated) rows for a single event window, for the Phase 4 detail panel."""
+    if df.empty or time_col not in df.columns:
+        return pd.DataFrame()
+
+    source = df.copy()
+    source[time_col] = pd.to_datetime(source[time_col], errors="coerce")
+    start = pd.to_datetime(start)
+    end = pd.to_datetime(end)
+
+    window = source[
+        (source[time_col] >= start) & (source[time_col] < end)
+    ].sort_values(time_col)
+
+    cols = [time_col] + existing(EVENT_ROW_COLUMNS, window)
+    renamed = {c: pretty_name(c) for c in cols if c != time_col}
+    renamed[time_col] = "Timestamp"
+    return window[cols].rename(columns=renamed)

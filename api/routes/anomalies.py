@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from app_core.anomalies import build_anomaly_event_tables, build_anomaly_table
+from app_core.anomalies import build_anomaly_event_tables, build_anomaly_table, event_rows_between
 from app_core.metadata import ANOMALY_SPECS
 from app_core.serialization import dataframe_records
 
@@ -60,4 +62,20 @@ def get_anomalies(
         "anomaly_type": anomaly_type,
         "tables": build_tables(df, query.settings.timestamp_col, query.row_count, anomaly_type),
         "event_tables": build_event_tables(df, query.settings.timestamp_col, query.row_count),
+    }
+
+
+@router.get("/anomalies/event-rows")
+def get_anomaly_event_rows(
+    start: datetime = Query(..., description="Event window start (inclusive)."),
+    end: datetime = Query(..., description="Event window end (exclusive)."),
+    query: ApiDashboardQuery = Depends(dashboard_query),
+):
+    blob_name, _raw, df, _full = load_prepared_frames(query)
+    rows = event_rows_between(df, query.settings.timestamp_col, start, end)
+    return {
+        "dataset": blob_name,
+        "start": start.isoformat(),
+        "end": end.isoformat(),
+        "rows": dataframe_records(rows),
     }

@@ -481,6 +481,64 @@ th.sticky-col {
   background: var(--blue-dark);
 }
 
+.event-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.details-event-button {
+  background: #fff;
+  border: 1px solid var(--blue);
+  border-radius: 8px;
+  color: var(--blue);
+  cursor: pointer;
+  font-weight: 850;
+  min-height: 34px;
+  padding: 7px 11px;
+  white-space: nowrap;
+}
+
+.details-event-button:hover,
+.details-event-button:focus {
+  background: #eaf2fe;
+}
+
+.event-detail-row td {
+  background: #f9fcff;
+  padding: 18px 20px;
+}
+
+.event-detail-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  white-space: normal;
+}
+
+.event-detail-kpis {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.event-detail-explanation,
+.event-detail-suggestion {
+  color: var(--text);
+  font-weight: 600;
+  margin: 0;
+}
+
+.event-detail-suggestion {
+  color: var(--muted);
+}
+
+.event-detail-chart {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  min-height: 220px;
+}
+
 .monthly-kpi-table td:first-child {
   color: var(--navy);
   font-weight: 850;
