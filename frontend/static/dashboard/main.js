@@ -2,6 +2,7 @@ import { apiGet, isAbortError, loadDatasets } from "./api.js";
 import {
   applyQuickPeriod,
   bindControlEvents,
+  bindZoomSyncToggle,
   currentState,
   populateDatasetOptions,
   readControls,
@@ -338,6 +339,7 @@ export async function init() {
 
   bindElements();
   setupTabs();
+  bindZoomSyncToggle();
   document.addEventListener("inspect-anomaly-event", inspectAnomalyEvent);
   bindControlEvents({ onRefresh: refreshDashboard });
 

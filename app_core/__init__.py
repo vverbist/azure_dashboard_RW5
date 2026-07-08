@@ -1,2 +1,2 @@
-"""Shared Streamlit/FastAPI business logic for the RW5 dashboard."""
+"""Shared business logic for the RW5 dashboard, called from the FastAPI routes."""
 

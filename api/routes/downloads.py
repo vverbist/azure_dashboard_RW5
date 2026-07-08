@@ -3,7 +3,7 @@ from __future__ import annotations
 import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException
 
-from app_core.anomalies import build_anomaly_table
+from app_core.anomalies import anomaly_source_df, build_anomaly_table
 from app_core.calculations import calculate_summary_table, make_variance_table
 from app_core.formatting import format_summary_table, format_variance_table
 from app_core.metadata import ANOMALY_SPECS
@@ -12,16 +12,6 @@ from app_core.monthly import make_monthly_kpi_table, make_monthly_numeric_table
 from ._common import ApiDashboardQuery, csv_response, dashboard_query, load_prepared_frames
 
 router = APIRouter()
-
-
-def anomaly_source_df(df: pd.DataFrame, anomaly_type: str) -> pd.DataFrame:
-    if anomaly_type == "negative-imbalance-revenue" and "imbalance_total_revenue" in df.columns:
-        return df[df["imbalance_total_revenue"] < 0]
-    if anomaly_type == "positive-imbalance-revenue" and "imbalance_total_revenue" in df.columns:
-        return df[df["imbalance_total_revenue"] > 0]
-    if anomaly_type == "negative-epex-revenue" and "epex_revenue" in df.columns:
-        return df[df["epex_revenue"] < 0]
-    return df
 
 
 @router.get("/downloads/filtered-data")

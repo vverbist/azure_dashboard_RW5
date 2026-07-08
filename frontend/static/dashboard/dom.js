@@ -33,6 +33,7 @@ const REQUIRED_ELEMENT_IDS = [
   "revenue-bridge-chart",
   "strike-chart",
   "strike-table",
+  "sync-chart-zoom",
   "timeseries-plots",
   "anomaly-event-tables",
   "anomaly-tables",

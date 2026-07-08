@@ -4,23 +4,13 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from app_core.anomalies import build_anomaly_event_tables, build_anomaly_table, event_rows_between
+from app_core.anomalies import anomaly_source_df, build_anomaly_event_tables, build_anomaly_table, event_rows_between
 from app_core.metadata import ANOMALY_SPECS
 from app_core.serialization import dataframe_records
 
 from ._common import ApiDashboardQuery, dashboard_query, load_prepared_frames
 
 router = APIRouter()
-
-
-def anomaly_source_df(df, anomaly_type: str):
-    if anomaly_type == "negative-imbalance-revenue" and "imbalance_total_revenue" in df.columns:
-        return df[df["imbalance_total_revenue"] < 0]
-    if anomaly_type == "positive-imbalance-revenue" and "imbalance_total_revenue" in df.columns:
-        return df[df["imbalance_total_revenue"] > 0]
-    if anomaly_type == "negative-epex-revenue" and "epex_revenue" in df.columns:
-        return df[df["epex_revenue"] < 0]
-    return df
 
 
 def build_tables(df, time_col: str, row_count: int, anomaly_type: str):

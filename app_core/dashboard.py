@@ -46,42 +46,30 @@ class DashboardSettings:
         return normalize_percentage(self.greenchoice_afslag_pct)
 
 
+def _with_diagnostics(df: pd.DataFrame, settings: DashboardSettings) -> pd.DataFrame:
+    out = add_diagnostic_columns(df)
+    out = add_greenchoice_benchmark(
+        out,
+        settings.greenchoice_volume_col,
+        settings.epex_price_col,
+        settings.normalized_afslag_pct,
+        settings.greenchoice_afslag_floor,
+        settings.gvo_value,
+    )
+    out = add_strike_price_diagnostic(
+        out,
+        settings.epex_price_col,
+        settings.nomination_volume_col,
+        settings.strike_price,
+    )
+    return out
+
+
 def prepare_dashboard_frames(raw_df: pd.DataFrame, settings: DashboardSettings) -> tuple[pd.DataFrame, pd.DataFrame]:
     parsed = parse_time_column(raw_df, settings.timestamp_col)
     selected = filter_by_date_range(parsed, settings.timestamp_col, settings.start_date, settings.end_date)
 
-    selected = add_diagnostic_columns(selected)
-    selected = add_greenchoice_benchmark(
-        selected,
-        settings.greenchoice_volume_col,
-        settings.epex_price_col,
-        settings.normalized_afslag_pct,
-        settings.greenchoice_afslag_floor,
-        settings.gvo_value,
-    )
-    selected = add_strike_price_diagnostic(
-        selected,
-        settings.epex_price_col,
-        settings.nomination_volume_col,
-        settings.strike_price,
-    )
-
-    full = add_diagnostic_columns(parsed)
-    full = add_greenchoice_benchmark(
-        full,
-        settings.greenchoice_volume_col,
-        settings.epex_price_col,
-        settings.normalized_afslag_pct,
-        settings.greenchoice_afslag_floor,
-        settings.gvo_value,
-    )
-    full = add_strike_price_diagnostic(
-        full,
-        settings.epex_price_col,
-        settings.nomination_volume_col,
-        settings.strike_price,
-    )
-    return selected, full
+    return _with_diagnostics(selected, settings), _with_diagnostics(parsed, settings)
 
 
 def format_period_label(df: pd.DataFrame, time_col: str) -> str:

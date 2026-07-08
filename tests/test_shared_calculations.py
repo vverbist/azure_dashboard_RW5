@@ -5,9 +5,17 @@ import pytest
 
 from app_core.anomalies import build_anomaly_event_tables, build_anomaly_table
 from app_core.benchmarks import add_greenchoice_benchmark, add_strike_price_diagnostic, summarize_strike_price
-from app_core.calculations import add_diagnostic_columns, calculate_summary_table
+from app_core.calculations import add_diagnostic_columns, calculate_summary_table, make_variance_table
+from app_core.chart_data import revenue_bridge_components, timeseries_chart_data
+from app_core.dashboard import (
+    DashboardSettings,
+    build_executive_narrative,
+    build_headline_kpis,
+    prepare_dashboard_frames,
+)
 from app_core.metadata import CURRENCY_UNIT
 from app_core.monthly import make_monthly_kpi_table, make_monthly_numeric_table
+from app_core.quality import find_missing_periods, make_data_quality_table
 
 
 def sample_df():
@@ -134,6 +142,92 @@ def test_monthly_kpi_table_generation():
     assert numeric.loc[numeric["Month"] == "2026-01", "Total revenue EUR"].iloc[0] == pytest.approx(1210.0)
     assert numeric.loc[numeric["Month"] == "2026-01", "Total capture price EUR/MWh"].iloc[0] == pytest.approx(1210.0 / 22.0)
     assert numeric.loc[numeric["Month"] == "2026-02", "Below-strike hours"].iloc[0] == pytest.approx(0.25)
+
+
+def test_prepare_dashboard_frames_applies_diagnostics_to_both_frames():
+    settings = DashboardSettings(start_date="2026-01-01", end_date="2026-01-31")
+    selected, full = prepare_dashboard_frames(sample_df(), settings)
+
+    assert len(selected) == 2  # January rows only
+    assert len(full) == 3  # January and February
+    for frame in (selected, full):
+        assert "imbalance_volume_mwh_calc" in frame.columns
+        assert "greenchoice_revenue" in frame.columns
+        assert "is_below_strike" in frame.columns
+
+
+def test_build_headline_kpis():
+    df = analysis_df()
+    summary = calculate_summary_table(df)
+    kpis = {kpi["key"]: kpi for kpi in build_headline_kpis(df, summary)}
+
+    assert kpis["total_revenue"]["value"] == pytest.approx(1120.0)
+    assert kpis["delivered_volume"]["value"] == pytest.approx(30.0)
+    assert kpis["nominated_volume"]["value"] == pytest.approx(31.0)
+
+
+def test_build_executive_narrative():
+    df = analysis_df()
+    summary = calculate_summary_table(df)
+    variance = make_variance_table(df)
+    metrics = [bullet["metric"] for bullet in build_executive_narrative(df, summary, variance)]
+
+    assert "total_revenue" in metrics
+    assert "revenue_vs_epex" in metrics
+
+
+def test_revenue_bridge_components():
+    summary = calculate_summary_table(sample_df())
+    components = {c["label"]: c for c in revenue_bridge_components(summary)}
+
+    assert components["Total"]["measure"] == "total"
+    assert components["Total"]["value"] == pytest.approx(1120.0)
+    assert components["EPEX"]["measure"] == "relative"
+
+
+def test_timeseries_chart_data():
+    df = analysis_df()
+    payload = timeseries_chart_data(df, "timestamp_Ams", "Volumes", "Original")
+
+    assert payload["group"] == "Volumes"
+    names = [series["name"] for series in payload["series"]]
+    assert "delivered_volume_mwh" in names
+    assert len(payload["rows"]) == len(df)
+
+
+def test_data_quality_gap_detection():
+    df = pd.DataFrame({
+        "timestamp_Ams": pd.to_datetime([
+            "2026-01-01 00:00",
+            "2026-01-01 00:15",
+            # 00:30 is missing
+            "2026-01-01 00:45",
+            "2026-01-01 01:00",
+        ]),
+        "value": [1.0, 2.0, 3.0, 4.0],
+    })
+
+    missing = find_missing_periods(df, "timestamp_Ams")
+    assert list(missing) == [pd.Timestamp("2026-01-01 00:30:00")]
+
+    table = make_data_quality_table(df, "timestamp_Ams")
+    gap_row = table[table["Check"] == "Missing periods (gaps)"].iloc[0]
+    assert gap_row["Result"] == "1"
+    assert gap_row["Status"] == "Issue"
+
+
+def test_data_quality_no_gaps():
+    df = pd.DataFrame({
+        "timestamp_Ams": pd.to_datetime(["2026-01-01 00:00", "2026-01-01 00:15", "2026-01-01 00:30"]),
+        "value": [1.0, 2.0, 3.0],
+    })
+
+    assert find_missing_periods(df, "timestamp_Ams").empty
+
+    table = make_data_quality_table(df, "timestamp_Ams")
+    gap_row = table[table["Check"] == "Missing periods (gaps)"].iloc[0]
+    assert gap_row["Result"] == "0"
+    assert gap_row["Status"] == "OK"
 
 
 def test_shared_core_does_not_import_streamlit():

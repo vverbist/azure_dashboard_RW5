@@ -265,6 +265,15 @@ export function bindControlEvents({ onRefresh }) {
   });
 }
 
+export function bindZoomSyncToggle() {
+  const toggle = getElement("sync-chart-zoom");
+  setStateValue("syncChartZoom", toggle.checked);
+
+  toggle.addEventListener("change", () => {
+    setStateValue("syncChartZoom", toggle.checked);
+  });
+}
+
 export function currentState() {
   return getState();
 }

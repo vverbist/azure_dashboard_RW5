@@ -372,6 +372,20 @@ h3 {
   margin: 0;
 }
 
+.sync-zoom-toggle {
+  align-items: center;
+  color: var(--muted);
+  display: flex;
+  font-size: 13px;
+  font-weight: 700;
+  gap: 7px;
+}
+
+.sync-zoom-toggle input {
+  height: 15px;
+  width: 15px;
+}
+
 .narrative-list {
   background: #fff;
   border-left: 4px solid var(--green);
