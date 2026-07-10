@@ -4,25 +4,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Commands
 
-Python environment: use the `rw5-db` conda env — `python`/`uvicorn` are not on PATH directly, so invoke via
-`C:\Users\VictorVerbist\miniforge3\envs\rw5-db\python.exe -m <module>` (e.g. `-m uvicorn`, `-m pytest`).
+Python environment: managed via [uv](https://docs.astral.sh/uv/) — `.venv` lives in the repo root, pinned to Python 3.12 (see `.python-version`). Run everything through `uv run` rather than activating the venv manually.
 
 ```bash
-pip install -r requirements.txt
+uv sync --extra test
 
 # FastAPI + static JS app
-uvicorn api.main:app --reload
+uv run uvicorn api.main:app --reload
 # Frontend: http://127.0.0.1:8000/  API docs: http://127.0.0.1:8000/docs
 
 # Tests (exercise app_core business logic directly, no FastAPI/Azure needed)
-pytest
-pytest tests/test_shared_calculations.py::test_summary_table_calculation  # single test
+uv run pytest
+uv run pytest tests/test_shared_calculations.py::test_summary_table_calculation  # single test
 
 # Validate shared calculations against a real CSV export
-python scripts/validate_shared_calculations.py data/exports/2026_ytd.csv
+uv run python scripts/validate_shared_calculations.py data/exports/2026_ytd.csv
 ```
 
-A `.claude/launch.json` entry named `fastapi` is set up for the preview tool (points at the `rw5-db` python).
+A `.claude/launch.json` entry named `fastapi` should point at `.venv\Scripts\python.exe` in the repo root.
 
 ### Environment variables (`.env`, see `.env.example`)
 

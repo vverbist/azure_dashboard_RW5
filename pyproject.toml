@@ -1,0 +1,23 @@
+[project]
+name = "azure-dashboard-rw5"
+version = "0.1.0"
+description = "RW5 Azure-backed dashboard: FastAPI backend + static JS frontend."
+requires-python = ">=3.12"
+dependencies = [
+    "pandas",
+    "pyarrow",
+    "python-dotenv",
+    "azure-storage-blob",
+    "fastapi",
+    "uvicorn[standard]",
+    "entsoe-py",
+]
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
