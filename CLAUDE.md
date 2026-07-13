@@ -6,6 +6,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Python environment: managed via [uv](https://docs.astral.sh/uv/) — `.venv` lives in the repo root, pinned to Python 3.12 (see `.python-version`). Run everything through `uv run` rather than activating the venv manually.
 
+`pyproject.toml` + `uv.lock` are the source of truth for dependencies — edit those (`uv add <package>`), don't hand-edit `requirements.txt`. `requirements.txt` only exists because Azure App Service's Oryx build reads it directly; after changing dependencies, regenerate it with:
+
+```bash
+uv export --format requirements.txt --no-hashes -o requirements.txt
+```
+
 ```bash
 uv sync --extra test
 
