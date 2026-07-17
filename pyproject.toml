@@ -12,6 +12,7 @@ dependencies = [
     "uvicorn[standard]",
     "entsoe-py",
     "openpyxl",
+    "influxdb-client",
 ]
 
 [project.optional-dependencies]

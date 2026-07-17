@@ -15,7 +15,9 @@ azure-storage-blob==12.30.0
 beautifulsoup4==4.15.0
     # via entsoe-py
 certifi==2026.6.17
-    # via requests
+    # via
+    #   influxdb-client
+    #   requests
 cffi==2.1.0 ; platform_python_implementation != 'PyPy'
     # via cryptography
 charset-normalizer==3.4.9
@@ -40,6 +42,8 @@ idna==3.18
     # via
     #   anyio
     #   requests
+influxdb-client==1.50.0
+    # via azure-dashboard-rw5
 isodate==0.7.2
     # via azure-storage-blob
 numpy==2.5.1
@@ -59,7 +63,9 @@ pydantic==2.13.4
 pydantic-core==2.46.4
     # via pydantic
 python-dateutil==2.9.0.post0
-    # via pandas
+    # via
+    #   influxdb-client
+    #   pandas
 python-dotenv==1.2.2
     # via
     #   azure-dashboard-rw5
@@ -68,6 +74,8 @@ pytz==2026.2
     # via entsoe-py
 pyyaml==6.0.3
     # via uvicorn
+reactivex==4.1.0
+    # via influxdb-client
 requests==2.34.2
     # via
     #   azure-core
@@ -87,6 +95,7 @@ typing-extensions==4.16.0
     #   fastapi
     #   pydantic
     #   pydantic-core
+    #   reactivex
     #   starlette
     #   typing-inspection
 typing-inspection==0.4.2
@@ -96,7 +105,9 @@ typing-inspection==0.4.2
 tzdata==2026.3 ; sys_platform == 'emscripten' or sys_platform == 'win32'
     # via pandas
 urllib3==2.7.0
-    # via requests
+    # via
+    #   influxdb-client
+    #   requests
 uvicorn==0.51.0
     # via azure-dashboard-rw5
 uvloop==0.22.1 ; platform_python_implementation != 'PyPy' and sys_platform != 'cygwin' and sys_platform != 'win32'
