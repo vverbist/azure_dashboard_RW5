@@ -34,6 +34,7 @@ const REQUIRED_ELEMENT_IDS = [
   "strike-chart",
   "strike-table",
   "sync-chart-zoom",
+  "autoscale-y-on-zoom",
   "timeseries-plots",
   "anomaly-event-tables",
   "anomaly-tables",

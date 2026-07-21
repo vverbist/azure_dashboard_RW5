@@ -11,7 +11,7 @@
       href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800;900&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/static/styles.css?v=20260708a" />
+    <link rel="stylesheet" href="/static/styles.css?v=20260721a" />
     <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
   </head>
   <body>
@@ -228,10 +228,16 @@
           <section class="content-section">
             <div class="section-header">
               <h3>Time-series explorer</h3>
-              <label class="sync-zoom-toggle">
-                <input type="checkbox" id="sync-chart-zoom" checked />
-                Sync chart zoom
-              </label>
+              <div class="chart-sync-controls">
+                <label class="sync-zoom-toggle">
+                  <input type="checkbox" id="sync-chart-zoom" checked />
+                  Sync chart zoom
+                </label>
+                <label class="sync-zoom-toggle">
+                  <input type="checkbox" id="autoscale-y-on-zoom" checked />
+                  Auto-scale Y on X zoom
+                </label>
+              </div>
             </div>
             <div id="timeseries-plots" class="timeseries-grid"></div>
           </section>
@@ -290,6 +296,6 @@
     </div>
 
     <div id="error-banner" class="error-banner" hidden></div>
-    <script type="module" src="/static/dashboard/main.js?v=20260708a"></script>
+    <script type="module" src="/static/dashboard/main.js?v=20260721a"></script>
   </body>
 </html>

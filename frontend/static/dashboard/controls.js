@@ -266,11 +266,17 @@ export function bindControlEvents({ onRefresh }) {
 }
 
 export function bindZoomSyncToggle() {
-  const toggle = getElement("sync-chart-zoom");
-  setStateValue("syncChartZoom", toggle.checked);
+  const syncToggle = getElement("sync-chart-zoom");
+  const autoScaleToggle = getElement("autoscale-y-on-zoom");
+  setStateValue("syncChartZoom", syncToggle.checked);
+  setStateValue("autoScaleYOnZoom", autoScaleToggle.checked);
 
-  toggle.addEventListener("change", () => {
-    setStateValue("syncChartZoom", toggle.checked);
+  syncToggle.addEventListener("change", () => {
+    setStateValue("syncChartZoom", syncToggle.checked);
+  });
+
+  autoScaleToggle.addEventListener("change", () => {
+    setStateValue("autoScaleYOnZoom", autoScaleToggle.checked);
   });
 }
 

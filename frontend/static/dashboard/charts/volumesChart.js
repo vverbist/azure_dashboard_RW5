@@ -1,6 +1,7 @@
 import { getElement } from "../dom.js";
 import { timestampToSelectedLocalString } from "../formatters.js";
 import { applyInspectionRange, chartLayout, getPlotly, showChartEmpty } from "./layout.js";
+import { CHART_COLORS } from "./chartTheme.js";
 import { SERIES_LABELS } from "./seriesLabels.js";
 
 export function renderVolumesChart(payload, targetId, options = {}) {
@@ -41,6 +42,8 @@ export function renderVolumesChart(payload, targetId, options = {}) {
 
   const aligned = buildAlignedComparisonPoints(pointsA, pointsB);
   const traces = [];
+  const lineAAbove = "Delivered above nominated";
+  const lineBAbove = "Nominated above delivered";
 
   for (let index = 0; index < aligned.length - 1; index += 1) {
     const left = aligned[index];
@@ -50,8 +53,6 @@ export function renderVolumesChart(payload, targetId, options = {}) {
 
     const leftDiff = left.a - left.b;
     const rightDiff = right.a - right.b;
-    const lineAAbove = `${lineA.label} above ${lineB.label}`;
-    const lineBAbove = `${lineB.label} above ${lineA.label}`;
 
     if (leftDiff === 0 && rightDiff === 0) continue;
 
@@ -62,7 +63,7 @@ export function renderVolumesChart(payload, targetId, options = {}) {
           right,
           topKey: "a",
           bottomKey: "b",
-          fillcolor: "rgba(149, 200, 0, 0.28)",
+          fillcolor: CHART_COLORS.greenFill,
           name: lineAAbove,
           showlegend: !traces.some((trace) => trace.name === lineAAbove),
         }),
@@ -74,7 +75,7 @@ export function renderVolumesChart(payload, targetId, options = {}) {
           right,
           topKey: "b",
           bottomKey: "a",
-          fillcolor: "rgba(239, 68, 68, 0.28)",
+          fillcolor: CHART_COLORS.redFill,
           name: lineBAbove,
           showlegend: !traces.some((trace) => trace.name === lineBAbove),
         }),
@@ -95,7 +96,7 @@ export function renderVolumesChart(payload, targetId, options = {}) {
             right: crossing,
             topKey: "a",
             bottomKey: "b",
-            fillcolor: "rgba(149, 200, 0, 0.28)",
+            fillcolor: CHART_COLORS.greenFill,
             name: lineAAbove,
             showlegend: !traces.some((trace) => trace.name === lineAAbove),
           }),
@@ -106,7 +107,7 @@ export function renderVolumesChart(payload, targetId, options = {}) {
             right,
             topKey: "b",
             bottomKey: "a",
-            fillcolor: "rgba(239, 68, 68, 0.28)",
+            fillcolor: CHART_COLORS.redFill,
             name: lineBAbove,
             showlegend: !traces.some((trace) => trace.name === lineBAbove),
           }),
@@ -118,7 +119,7 @@ export function renderVolumesChart(payload, targetId, options = {}) {
             right: crossing,
             topKey: "b",
             bottomKey: "a",
-            fillcolor: "rgba(239, 68, 68, 0.28)",
+            fillcolor: CHART_COLORS.redFill,
             name: lineBAbove,
             showlegend: !traces.some((trace) => trace.name === lineBAbove),
           }),
@@ -129,7 +130,7 @@ export function renderVolumesChart(payload, targetId, options = {}) {
             right,
             topKey: "a",
             bottomKey: "b",
-            fillcolor: "rgba(149, 200, 0, 0.28)",
+            fillcolor: CHART_COLORS.greenFill,
             name: lineAAbove,
             showlegend: !traces.some((trace) => trace.name === lineAAbove),
           }),
@@ -138,22 +139,31 @@ export function renderVolumesChart(payload, targetId, options = {}) {
     }
   }
 
+  const deliveredAboveTraces = traces.filter(
+    (trace) => trace.name === lineAAbove,
+  );
+  const nominatedAboveTraces = traces.filter(
+    (trace) => trace.name === lineBAbove,
+  );
+  traces.length = 0;
+  traces.push(...nominatedAboveTraces, ...deliveredAboveTraces);
+
   traces.push(
-    {
-      type: "scatter",
-      mode: "lines",
-      name: lineA.label,
-      x: lineA.x,
-      y: lineA.y,
-      line: { width: 2, color: "#002B5C" },
-    },
     {
       type: "scatter",
       mode: "lines",
       name: lineB.label,
       x: lineB.x,
       y: lineB.y,
-      line: { width: 2, color: "#1673E6" },
+      line: { width: 2, color: CHART_COLORS.blueLight },
+    },
+    {
+      type: "scatter",
+      mode: "lines",
+      name: lineA.label,
+      x: lineA.x,
+      y: lineA.y,
+      line: { width: 2.5, color: CHART_COLORS.blue },
     },
   );
 
@@ -162,6 +172,7 @@ export function renderVolumesChart(payload, targetId, options = {}) {
     options.inspectionWindow,
   );
   layout.yaxis.rangemode = "tozero";
+  layout.legend.traceorder = "reversed";
 
   const plotly = getPlotly(target);
   if (!plotly) return;

@@ -15,6 +15,7 @@ const dashboardState = {
   monthPeriods: [],
   activeInspection: null,
   syncChartZoom: true,
+  autoScaleYOnZoom: true,
 };
 
 export function getState() {
