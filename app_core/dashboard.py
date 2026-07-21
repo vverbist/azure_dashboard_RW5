@@ -80,6 +80,18 @@ def format_period_label(df: pd.DataFrame, time_col: str) -> str:
     return f"{start} to {end}"
 
 
+def latest_data_date(df: pd.DataFrame, time_col: str) -> str | None:
+    """Return the calendar date of the latest timestamp in a dataset."""
+    if df.empty or time_col not in df.columns:
+        return None
+
+    latest = df[time_col].max()
+    if pd.isna(latest):
+        return None
+
+    return latest.strftime("%Y-%m-%d")
+
+
 def make_status_label(value, positive_good: bool = True) -> str:
     if pd.isna(value):
         return "No data"
@@ -153,4 +165,3 @@ def recognized_columns_table(df: pd.DataFrame, time_col: str) -> pd.DataFrame:
         {"Column": c, "Label": pretty_name(c), "Unit": infer_unit(c), "Aggregation": agg_for_col(c)}
         for c in numeric_columns(df, excluded=time_col)
     ])
-

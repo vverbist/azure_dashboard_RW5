@@ -16,6 +16,7 @@ const REQUIRED_ELEMENT_IDS = [
   ...CONTROL_IDS,
   "controls",
   "status",
+  "data-available-through",
   "error-banner",
   "selected-period-scope",
   "assumption-strip",

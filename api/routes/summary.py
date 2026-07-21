@@ -8,6 +8,7 @@ from app_core.dashboard import (
     build_executive_narrative,
     build_headline_kpis,
     format_period_label,
+    latest_data_date,
     selected_assumptions_table,
 )
 from app_core.formatting import format_summary_table, format_variance_table
@@ -20,7 +21,7 @@ router = APIRouter()
 
 @router.get("/summary")
 def get_summary(query: ApiDashboardQuery = Depends(dashboard_query)):
-    blob_name, raw, df, _full = load_prepared_frames(query)
+    blob_name, raw, df, full = load_prepared_frames(query)
     summary = calculate_summary_table(df)
     variance = make_variance_table(df)
     greenchoice_summary = summarize_greenchoice(df)
@@ -33,6 +34,7 @@ def get_summary(query: ApiDashboardQuery = Depends(dashboard_query)):
             "rows": len(df),
             "source_rows": len(raw),
             "granularity": query.settings.resampling_rule,
+            "data_available_through": latest_data_date(full, query.settings.timestamp_col),
         },
         "headline_kpis": clean_items(build_headline_kpis(df, summary)),
         "executive_narrative": build_executive_narrative(df, summary, variance),
@@ -48,4 +50,3 @@ def get_summary(query: ApiDashboardQuery = Depends(dashboard_query)):
         "strike_summary": dataframe_records(strike_summary),
         "assumptions": dataframe_records(selected_assumptions_table(query.settings)),
     }
-

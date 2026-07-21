@@ -18,6 +18,7 @@ import { updateState } from "./state.js";
 import { renderAssumptionStrip } from "./renderers/assumptions.js";
 import {
   renderContext,
+  renderDataAvailability,
   renderSelectedPeriodScope,
 } from "./renderers/context.js";
 import { renderDownloads } from "./renderers/downloads.js";
@@ -123,6 +124,7 @@ function countOptionalFailures(results) {
 }
 
 function renderSummary(summary) {
+  renderDataAvailability(summary.context?.data_available_through);
   renderSelectedPeriodScope(summary.context);
   renderAssumptionStrip(currentState());
   renderContext(summary.context);
@@ -271,6 +273,7 @@ export async function refreshDashboard() {
 
   clearError();
   setStatus("Loading");
+  renderDataAvailability(null, "Loading...");
   applyQuickPeriod();
   readControls();
 

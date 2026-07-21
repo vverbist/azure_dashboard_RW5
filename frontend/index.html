@@ -11,7 +11,7 @@
       href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800;900&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/static/styles.css?v=20260721a" />
+    <link rel="stylesheet" href="/static/styles.css?v=20260721b" />
     <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
   </head>
   <body>
@@ -144,7 +144,17 @@
             </div>
             <h2>RW5 Revenue Dashboard</h2>
           </div>
-          <div id="status" class="status-pill">Loading</div>
+          <div class="header-meta">
+            <div
+              id="data-available-through"
+              class="data-availability"
+              aria-live="polite"
+            >
+              <span>Data available through</span>
+              <strong>Loading...</strong>
+            </div>
+            <div id="status" class="status-pill">Loading</div>
+          </div>
         </header>
 
         <nav class="tabs" aria-label="Dashboard sections">
@@ -296,6 +306,6 @@
     </div>
 
     <div id="error-banner" class="error-banner" hidden></div>
-    <script type="module" src="/static/dashboard/main.js?v=20260721a"></script>
+    <script type="module" src="/static/dashboard/main.js?v=20260721b"></script>
   </body>
 </html>
