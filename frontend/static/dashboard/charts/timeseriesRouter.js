@@ -162,7 +162,7 @@ function bindZoomSync(chartIds, chartPayloads) {
 
       const syncX = getStateValue("syncChartZoom");
       const autoScaleY = getStateValue("autoScaleYOnZoom");
-      if (!syncX && !autoScaleY) return;
+      if (!syncX) return;
 
       if (zoomSyncTimer) clearTimeout(zoomSyncTimer);
       zoomSyncTimer = setTimeout(() => {
@@ -172,9 +172,7 @@ function bindZoomSync(chartIds, chartPayloads) {
 
         try {
           updates = chartIds
-            .filter((chartId) =>
-              chartId !== sourceId ? syncX : autoScaleY,
-            )
+            .filter((chartId) => chartId !== sourceId)
             .map((chartId) => {
               const element = document.getElementById(chartId);
               if (!element) return null;
