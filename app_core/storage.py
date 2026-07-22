@@ -8,6 +8,14 @@ from azure.storage.blob import BlobServiceClient
 from .config import get_azure_connection_string, get_azure_container_name
 
 
+SCADA_FLAG_DTYPES = {
+    "scada_available_potential_warning": "boolean",
+    "scada_actual_cap_warning": "boolean",
+    "scada_setpoint_fallback_applied": "boolean",
+    "scada_frozen_signal": "boolean",
+}
+
+
 class StorageConfigurationError(RuntimeError):
     pass
 
@@ -40,11 +48,10 @@ def read_blob_csv(
 ) -> pd.DataFrame:
     container = get_container_client(connection_string=connection_string, container_name=container_name)
     blob_bytes = container.download_blob(blob_name).readall()
-    return pd.read_csv(BytesIO(blob_bytes))
+    return pd.read_csv(BytesIO(blob_bytes), dtype=SCADA_FLAG_DTYPES)
 
 
 def list_dataset_blobs(connection_string: str | None = None, container_name: str | None = None) -> dict[str, list[str]]:
     exports = list_csv_blobs("exports/", connection_string=connection_string, container_name=container_name)
     monthly = list_csv_blobs("monthly/", connection_string=connection_string, container_name=container_name)
     return {"exports": exports, "monthly": monthly, "all": sorted(exports + monthly)}
-
