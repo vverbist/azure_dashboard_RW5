@@ -1,11 +1,16 @@
 .env
 .venv/
 data/
+*.csv
+*.parquet
+*.log
 __pycache__/
 *.pyc
 .streamlit/secrets.toml
 .pytest_cache/
 frontend/dist/
-pipeline/
-update_daily_data.bat
-tests/
+
+# Superseded one-off / reference SCADA scripts. Production pipeline code is tracked.
+pipeline/influxdb_query_REF.py
+pipeline/fetch_scada_h1_2026.py
+pipeline/combine_scada_market.py

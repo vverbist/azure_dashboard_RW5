@@ -19,6 +19,42 @@ Pipeline-only variables remain compatible with the existing data update script:
 - `EVIEW_PASSWORD`
 - `ENTSOE_TOKEN`
 
+The manual turbine SCADA update additionally uses:
+
+- `IDB_URL`
+- `IDB_TOKEN`
+- `IDB_ORG`
+- `IDB_BUCKET`
+
+## Manual SCADA Update
+
+Connect the turbine in eCatcher, then run:
+
+```bash
+uv run python pipeline/run_scada_update.py
+```
+
+The command checks the previous 14 completed Amsterdam calendar days. It
+restores raw partitions from Azure when possible, queries InfluxDB only for
+missing days, uploads raw data before analysis, enriches available market daily
+files, and rebuilds affected monthly/YTD exports.
+
+Preview local coverage without network calls or file changes:
+
+```bash
+uv run python pipeline/run_scada_update.py --dry-run
+```
+
+Use `--refresh` to deliberately replace cached SCADA for the selected window,
+or `--no-upload` for a local-only test run.
+
+An existing multi-day cache with the five direct ENERCON signals can be
+partitioned and published without querying InfluxDB:
+
+```bash
+uv run python pipeline/import_scada_cache.py --source data/scada/scada_h1_2026.parquet --start 2026-01-01 --end 2026-06-30
+```
+
 ## Install
 
 ```bash
