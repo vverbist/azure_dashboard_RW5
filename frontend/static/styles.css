@@ -182,6 +182,11 @@ label {
 
 .page-header h2 {
   font-size: 30px;
+  white-space: nowrap;
+}
+
+.page-header > div:first-child {
+  flex: 0 0 auto;
 }
 
 .header-meta {
@@ -251,11 +256,13 @@ label {
 
 .tab-panel {
   display: none;
+  min-width: 0;
 }
 
 .tab-panel.active {
   display: grid;
   gap: 30px;
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .scope-strip,
@@ -379,6 +386,7 @@ label {
   min-width: 0;
   display: grid;
   gap: 14px;
+  grid-template-columns: minmax(0, 1fr);
 }
 
 #selected-period .content-section {
@@ -443,6 +451,8 @@ h3 {
   border: 1px solid var(--line);
   border-radius: 8px;
   overflow: auto;
+  max-width: 100%;
+  width: 100%;
 }
 
 table {
@@ -609,6 +619,59 @@ th.sticky-col {
 .monthly-kpi-table tr.monthly-derived-row td:first-child {
   color: var(--muted);
   padding-left: 28px;
+}
+
+.scada-monthly-table td:first-child {
+  min-width: 290px;
+}
+
+.scada-period-table table {
+  table-layout: fixed;
+}
+
+.scada-period-table th {
+  white-space: normal;
+}
+
+.scada-period-table th:first-child,
+.scada-period-table td:first-child {
+  white-space: normal;
+  width: 62%;
+}
+
+.scada-period-table th:last-child,
+.scada-period-table td:last-child {
+  width: 38%;
+}
+
+.table-cell-stack {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+  white-space: nowrap;
+}
+
+.table-cell-primary {
+  color: var(--text);
+  font-weight: 750;
+}
+
+.table-cell-secondary {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.scada-monthly-table tr.scada-energy-start td,
+.scada-monthly-table tr.scada-loss-start td,
+.scada-period-table tr.scada-energy-start td,
+.scada-period-table tr.scada-loss-start td {
+  border-top: 3px solid #aebfd2;
+  padding-top: 16px;
+}
+
+#scada-coverage-note {
+  margin-top: 6px;
 }
 
 .download-row {

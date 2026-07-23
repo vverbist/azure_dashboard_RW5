@@ -153,6 +153,14 @@
               <span>Data available through</span>
               <strong>Loading...</strong>
             </div>
+            <div
+              id="scada-data-available-through"
+              class="data-availability"
+              aria-live="polite"
+            >
+              <span>SCADA available through</span>
+              <strong>Loading...</strong>
+            </div>
             <div id="status" class="status-pill">Loading</div>
           </div>
         </header>
@@ -188,6 +196,20 @@
             <div id="monthly-chart-2" class="chart-frame"></div>
             <div id="monthly-chart-3" class="chart-frame"></div>
           </div>
+          <section class="content-section">
+            <div class="section-header">
+              <div>
+                <h3>SCADA energy and losses</h3>
+                <p class="table-description">
+                  Energy disposition is calculated on valid SCADA intervals;
+                  frozen periods are excluded and reported as coverage.
+                </p>
+              </div>
+              <div class="download-row" id="scada-monthly-downloads"></div>
+            </div>
+            <div id="scada-monthly-table"></div>
+            <div id="scada-monthly-chart" class="chart-frame large"></div>
+          </section>
         </section>
 
         <section id="selected-period" class="tab-panel">
@@ -216,6 +238,18 @@
               <h3>Commercial breakdown</h3>
             </div>
             <div id="commercial-table"></div>
+          </section>
+
+          <section class="content-section">
+            <div class="section-header">
+              <div>
+                <h3>SCADA energy summary</h3>
+                <p class="table-description" id="scada-coverage-note">
+                  Loading SCADA coverage...
+                </p>
+              </div>
+            </div>
+            <div id="scada-period-table"></div>
           </section>
 
           <section class="content-section">
@@ -250,6 +284,7 @@
               </div>
             </div>
             <div id="timeseries-plots" class="timeseries-grid"></div>
+            <div id="scada-envelope-chart" class="chart-frame large"></div>
           </section>
 
         </section>

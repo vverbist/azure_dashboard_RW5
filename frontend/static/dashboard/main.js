@@ -19,6 +19,7 @@ import { renderAssumptionStrip } from "./renderers/assumptions.js";
 import {
   renderContext,
   renderDataAvailability,
+  renderScadaDataAvailability,
   renderSelectedPeriodScope,
 } from "./renderers/context.js";
 import { renderDownloads } from "./renderers/downloads.js";
@@ -29,6 +30,10 @@ import {
   renderAnomaliesError,
 } from "./renderers/anomalies.js";
 import { renderTable, renderTableError } from "./renderers/tables.js";
+import {
+  renderScadaEnvelope,
+  renderScadaEnvelopeError,
+} from "./renderers/scada.js";
 import { showChartEmpty } from "./charts/layout.js";
 import { renderLineChart } from "./charts/lineChart.js";
 import {
@@ -41,8 +46,16 @@ let initialized = false;
 let refreshToken = 0;
 let activeRefreshController = null;
 let lastTimeseriesResults = [];
+let lastScadaEnvelope = null;
 
 const EVENT_WINDOW_PADDING_HOURS = 2;
+
+function renderSynchronizedTimeseries(results, options = {}) {
+  const additionalCharts = lastScadaEnvelope?.available
+    ? [{ id: "scada-envelope-chart", payload: lastScadaEnvelope }]
+    : [];
+  renderAllTimeseries(results, { ...options, additionalCharts });
+}
 
 function beginRefresh() {
   if (activeRefreshController) {
@@ -81,6 +94,7 @@ async function loadDashboardData(signal) {
     strike: apiGet("/api/strike-exposure", {}, { signal }),
     anomalies: apiGet("/api/anomalies", {}, { signal }),
     quality: apiGet("/api/data-quality", {}, { signal }),
+    scada: apiGet("/api/scada", {}, { signal }),
   };
   const timeseriesRequests = TIMESERIES_GROUPS.map((group) =>
     apiGet("/api/timeseries", { chart_group: group }, { signal }),
@@ -115,6 +129,7 @@ function countOptionalFailures(results) {
     results.strike,
     results.anomalies,
     results.quality,
+    results.scada,
   ].filter((result) => result?.status === "rejected").length;
   const timeseriesFailures = (results.timeseries || []).filter(
     (result) => result.status === "rejected",
@@ -238,7 +253,7 @@ function renderInspectionStrip() {
   target.querySelector(".clear-inspection-button")?.addEventListener("click", () => {
     updateState({ activeInspection: null });
     renderInspectionStrip();
-    renderAllTimeseries(lastTimeseriesResults, {
+    renderSynchronizedTimeseries(lastTimeseriesResults, {
       timestampColumn: currentState().timestamp_col,
     });
   });
@@ -257,7 +272,7 @@ function inspectAnomalyEvent(event) {
   switchTab("selected-period");
   setStatus(`Inspecting ${type || "anomaly event"}`);
   renderInspectionStrip();
-  renderAllTimeseries(lastTimeseriesResults, {
+  renderSynchronizedTimeseries(lastTimeseriesResults, {
     timestampColumn: currentState().timestamp_col,
     inspectionWindow: currentState().activeInspection,
   });
@@ -274,6 +289,7 @@ export async function refreshDashboard() {
   clearError();
   setStatus("Loading");
   renderDataAvailability(null, "Loading...");
+  renderScadaDataAvailability(null, "Loading...");
   applyQuickPeriod();
   readControls();
 
@@ -305,6 +321,17 @@ export async function refreshDashboard() {
     renderSummary(summary);
     renderRevenueBridge(results.revenueBridge);
     renderStrikeExposure(results.strike);
+    if (results.scada.status === "fulfilled") {
+      lastScadaEnvelope = results.scada.value.selected_period;
+      renderScadaDataAvailability(results.scada.value.data_available_through);
+      renderScadaEnvelope(lastScadaEnvelope);
+    } else {
+      lastScadaEnvelope = null;
+      renderScadaDataAvailability(null);
+      renderScadaEnvelopeError(
+        resultMessage("Could not load SCADA production envelope", results.scada),
+      );
+    }
 
     if (results.anomalies.status === "fulfilled") {
       renderAnomalies(results.anomalies.value);
@@ -316,7 +343,7 @@ export async function refreshDashboard() {
 
     lastTimeseriesResults = results.timeseries;
     renderInspectionStrip();
-    renderAllTimeseries(results.timeseries, {
+    renderSynchronizedTimeseries(results.timeseries, {
       timestampColumn: currentState().timestamp_col,
       inspectionWindow: currentState().activeInspection,
     });

@@ -14,12 +14,30 @@ function formatDataDate(value) {
   }).format(date);
 }
 
-export function renderDataAvailability(value, fallback = "Unavailable") {
+function renderAvailability(targetId, label, value, fallback) {
   const displayValue = formatDataDate(value) || fallback;
-  getElement("data-available-through").innerHTML = `
-    <span>Data available through</span>
+  getElement(targetId).innerHTML = `
+    <span>${escapeHtml(label)}</span>
     <strong>${escapeHtml(displayValue)}</strong>
   `;
+}
+
+export function renderDataAvailability(value, fallback = "Unavailable") {
+  renderAvailability(
+    "data-available-through",
+    "Data available through",
+    value,
+    fallback,
+  );
+}
+
+export function renderScadaDataAvailability(value, fallback = "Unavailable") {
+  renderAvailability(
+    "scada-data-available-through",
+    "SCADA available through",
+    value,
+    fallback,
+  );
 }
 
 export function renderContext(context) {

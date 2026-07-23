@@ -2,6 +2,7 @@ import { chartLayout, getPlotly, showChartEmpty } from "../charts/layout.js";
 import { renderDownloads } from "./downloads.js";
 import { renderTable, renderTableError } from "./tables.js";
 import { getElement } from "../dom.js";
+import { renderScadaMonthly, renderScadaMonthlyError } from "./scada.js";
 
 const MONTHLY_GROUP_STARTS = new Set([
   "Delivered volume",
@@ -28,6 +29,7 @@ export function renderMonthly(monthly) {
     rowClassName: monthlyRowClass,
   });
   renderMonthlyCharts(monthly);
+  renderScadaMonthly(monthly?.scada);
   renderDownloads("monthly-downloads", [
     { label: "KPI overview", path: "/api/downloads/monthly-kpi-overview" },
     { label: "Numeric export", path: "/api/downloads/monthly-numeric" },
@@ -91,4 +93,5 @@ export function renderMonthlyError(message) {
   [1, 2, 3].forEach((index) => {
     showChartEmpty(`monthly-chart-${index}`, message);
   });
+  renderScadaMonthlyError(message);
 }

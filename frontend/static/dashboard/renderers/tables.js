@@ -1,6 +1,17 @@
 import { getElement } from "../dom.js";
 import { escapeHtml, formatCell } from "../formatters.js";
 
+function renderStructuredCell(content) {
+  if (content?.type === "stacked") {
+    const secondary =
+      content.secondaryText === null || content.secondaryText === undefined
+        ? ""
+        : `<span class="table-cell-secondary">${escapeHtml(content.secondaryText)}</span>`;
+    return `<span class="table-cell-stack"><span class="table-cell-primary">${escapeHtml(formatCell(content.primaryText))}</span>${secondary}</span>`;
+  }
+  return escapeHtml(formatCell(content?.text));
+}
+
 export function renderEmptyState(targetOrId, message) {
   const target =
     typeof targetOrId === "string" ? getElement(targetOrId) : targetOrId;
@@ -13,6 +24,7 @@ export function renderTable(targetId, rows, options = {}) {
   const rowClassName = options.rowClassName || (() => "");
   const hiddenColumns = new Set(options.hiddenColumns || []);
   const extraColumns = options.extraColumns || [];
+  const renderCellContent = options.renderCellContent;
   const renderCell =
     options.renderCell ||
     ((row, col) => escapeHtml(formatCell(row[col])));
@@ -51,7 +63,7 @@ export function renderTable(targetId, rows, options = {}) {
           ${rows
             .map(
               (row) => `
-            <tr${rowClassName(row) ? ` class="${escapeHtml(rowClassName(row))}"` : ""}>${allColumns.map((col) => `<td${col.sticky ? ` class="sticky-col"` : ""}>${col.extra ? col.render(row) : renderCell(row, col.key)}</td>`).join("")}</tr>
+            <tr${rowClassName(row) ? ` class="${escapeHtml(rowClassName(row))}"` : ""}>${allColumns.map((col) => `<td${col.sticky ? ` class="sticky-col"` : ""}>${col.extra ? col.render(row) : renderCellContent ? renderStructuredCell(renderCellContent(row, col.key)) : renderCell(row, col.key)}</td>`).join("")}</tr>
           `,
             )
             .join("")}

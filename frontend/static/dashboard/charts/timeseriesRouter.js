@@ -88,7 +88,10 @@ function visibleYRange(payload, range) {
 
   if (!values.length) return null;
 
-  const includeZero = group === "Volumes" || group === "Revenue components";
+  const includeZero =
+    group === "Volumes" ||
+    group === "Revenue components" ||
+    group === "SCADA production envelope";
   let minimum = Infinity;
   let maximum = -Infinity;
 
@@ -153,6 +156,10 @@ function bindZoomSync(chartIds, chartPayloads) {
   chartIds.forEach((sourceId) => {
     const sourceEl = document.getElementById(sourceId);
     if (!sourceEl || typeof sourceEl.on !== "function") return;
+
+    if (typeof sourceEl.removeAllListeners === "function") {
+      sourceEl.removeAllListeners("plotly_relayout");
+    }
 
     sourceEl.on("plotly_relayout", (eventData) => {
       if (syncingZoom) return;
@@ -241,13 +248,16 @@ export function renderTimeseriesChart(payload, targetId, options = {}) {
 export function renderAllTimeseries(results, options = {}) {
   const target = getElement("timeseries-plots");
   const items = results || [];
+  const additionalCharts = (options.additionalCharts || []).filter(
+    (chart) => chart?.id && chart?.payload,
+  );
 
   if (zoomSyncTimer) {
     clearTimeout(zoomSyncTimer);
     zoomSyncTimer = null;
   }
 
-  if (!items.length) {
+  if (!items.length && !additionalCharts.length) {
     showChartEmpty(target, "No time-series charts available.");
     return;
   }
@@ -277,6 +287,11 @@ export function renderAllTimeseries(results, options = {}) {
     const payload = item.value || item;
     chartPayloads.set(targetId, payload);
     renderTimeseriesChart(payload, targetId, options);
+  });
+
+  additionalCharts.forEach(({ id, payload }) => {
+    const element = document.getElementById(id);
+    if (element) chartPayloads.set(id, payload);
   });
 
   bindZoomSync([...chartPayloads.keys()], chartPayloads);
