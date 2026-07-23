@@ -21,6 +21,7 @@ import {
   renderScadaDataAvailability,
   renderSelectedPeriodScope,
 } from "./renderers/context.js";
+import { renderCompleteness } from "./renderers/completeness.js";
 import { renderDownloads } from "./renderers/downloads.js";
 import { renderKpis, renderNarrative } from "./renderers/kpis.js";
 import { renderMonthly, renderMonthlyError } from "./renderers/monthly.js";
@@ -139,8 +140,9 @@ function countOptionalFailures(results) {
 
 function renderSummary(summary) {
   renderDataAvailability(summary.context?.data_available_through);
+  renderCompleteness(summary.context?.completeness);
   renderSelectedPeriodScope(summary.context);
-  renderAssumptionStrip(currentState());
+  renderAssumptionStrip(currentState(), summary.commercial_basis);
   renderKpis(summary.headline_kpis);
   renderNarrative(summary.executive_narrative);
   renderTable(

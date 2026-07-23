@@ -1,20 +1,35 @@
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import pytest
 
 from app_core.anomalies import build_anomaly_event_tables, build_anomaly_table
 from app_core.benchmarks import add_greenchoice_benchmark, add_strike_price_diagnostic, summarize_strike_price
-from app_core.calculations import add_diagnostic_columns, calculate_summary_table, make_variance_table
+from app_core.calculations import (
+    add_diagnostic_columns,
+    calculate_summary_table,
+    filter_by_date_range,
+    make_variance_table,
+    normalize_percentage,
+)
 from app_core.chart_data import revenue_bridge_components, timeseries_chart_data
+from app_core.completeness import frame_completeness, monthly_completeness
+from app_core.formatting import format_value
 from app_core.dashboard import (
     DashboardSettings,
     build_executive_narrative,
     build_headline_kpis,
+    latest_data_date,
     prepare_dashboard_frames,
 )
 from app_core.metadata import CURRENCY_UNIT
-from app_core.monthly import make_monthly_kpi_table, make_monthly_numeric_table
+from app_core.monthly import (
+    make_monthly_kpi_table,
+    make_monthly_numeric_table,
+    month_coverage,
+    monthly_projection,
+)
 from app_core.quality import find_missing_periods, make_data_quality_table
 
 
@@ -156,6 +171,12 @@ def test_prepare_dashboard_frames_applies_diagnostics_to_both_frames():
         assert "is_below_strike" in frame.columns
 
 
+def test_latest_data_date_uses_full_latest_calendar_day():
+    assert latest_data_date(sample_df(), "timestamp_Ams") == "2026-02-01"
+    assert latest_data_date(pd.DataFrame(), "timestamp_Ams") is None
+    assert latest_data_date(pd.DataFrame({"timestamp_Ams": [pd.NaT]}), "timestamp_Ams") is None
+
+
 def test_build_headline_kpis():
     df = analysis_df()
     summary = calculate_summary_table(df)
@@ -228,6 +249,197 @@ def test_data_quality_no_gaps():
     gap_row = table[table["Check"] == "Missing periods (gaps)"].iloc[0]
     assert gap_row["Result"] == "0"
     assert gap_row["Status"] == "OK"
+
+
+def test_all_nan_revenue_aggregates_to_unavailable():
+    df = sample_df()
+    df["total_revenue"] = np.nan
+    df["epex_revenue"] = np.nan
+
+    summary = calculate_summary_table(df)
+
+    assert pd.isna(summary.loc["Revenue", "Total"])
+    assert pd.isna(summary.loc["Revenue", "EPEX"])
+    assert format_value(summary.loc["Revenue", "Total"], CURRENCY_UNIT) == "-"
+
+
+def test_empty_selection_produces_no_financial_narrative():
+    empty = add_diagnostic_columns(sample_df().iloc[0:0])
+    empty = add_greenchoice_benchmark(empty, "delivered_volume_mwh", "epex_eur_per_mwh", 0.17, 10.0, 0.0)
+    empty = add_strike_price_diagnostic(empty, "epex_eur_per_mwh", "nominated_volume_mwh", 0.0)
+
+    summary = calculate_summary_table(empty)
+    variance = make_variance_table(empty)
+
+    assert pd.isna(summary.loc["Revenue", "Total"])
+    assert build_executive_narrative(empty, summary, variance) == []
+
+
+def test_filter_by_date_range_rejects_inverted_range():
+    with pytest.raises(ValueError):
+        filter_by_date_range(sample_df(), "timestamp_Ams", "2026-02-01", "2026-01-01")
+
+
+def test_format_value_normalizes_negative_zero():
+    assert format_value(-0.0, CURRENCY_UNIT) == "€0"
+    assert format_value(-0.3, CURRENCY_UNIT) == "€0"  # rounds to -0, shown as 0
+    assert format_value(-0.001, "MWh", decimals=2) == "0.00 MWh"
+
+
+def test_percentage_semantics_are_percent_numbers():
+    assert normalize_percentage(17) == pytest.approx(0.17)
+    assert normalize_percentage(0.5) == pytest.approx(0.005)
+    assert normalize_percentage(1) == pytest.approx(0.01)
+    assert normalize_percentage(100) == pytest.approx(1.0)
+    assert normalize_percentage(None) == pytest.approx(0.17)  # default is 17%
+
+
+def test_dashboard_settings_normalizes_afslag_percentage():
+    assert DashboardSettings(greenchoice_afslag_pct=17).normalized_afslag_pct == pytest.approx(0.17)
+    assert DashboardSettings(greenchoice_afslag_pct=0.5).normalized_afslag_pct == pytest.approx(0.005)
+    assert DashboardSettings().normalized_afslag_pct == pytest.approx(0.17)
+
+
+def test_validate_choice_rejects_unknown_values():
+    from fastapi import HTTPException
+
+    from api.routes._common import _validate_choice
+    from app_core.metadata import RESAMPLING_RULES
+
+    _validate_choice("Original", RESAMPLING_RULES, "resampling_rule")  # valid -> no raise
+    with pytest.raises(HTTPException):
+        _validate_choice("Nonsense", RESAMPLING_RULES, "resampling_rule")
+
+
+def test_frame_completeness_flags_missing_source_dates():
+    df = pd.DataFrame({
+        "timestamp_Ams": pd.to_datetime([
+            "2026-01-01 00:00", "2026-01-01 00:15",
+            "2026-01-02 00:00", "2026-01-02 00:15",
+        ]),
+        "epex_eur_per_mwh": [50.0, 60.0, 55.0, 45.0],
+        "nominated_volume_mwh": [np.nan, np.nan, 10.0, 12.0],  # 2026-01-01 fully missing
+        "delivered_volume_mwh": [9.0, 11.0, 10.0, 12.0],
+    })
+
+    result = frame_completeness(df, "timestamp_Ams")
+    by_key = {s["key"]: s for s in result["sources"]}
+
+    assert by_key["market"]["status"] == "complete"
+    assert by_key["market"]["coverage_pct"] == 100.0
+    nomination = by_key["nomination"]
+    assert nomination["status"] == "partial"
+    assert nomination["missing_intervals"] == 2
+    assert nomination["missing_dates"] == ["2026-01-01"]
+    assert nomination["coverage_pct"] == 50.0
+    assert result["overall_status"] == "partial"
+
+
+def test_frame_completeness_all_complete():
+    df = pd.DataFrame({
+        "timestamp_Ams": pd.to_datetime(["2026-01-01 00:00", "2026-01-01 00:15"]),
+        "epex_eur_per_mwh": [50.0, 60.0],
+        "nominated_volume_mwh": [9.0, 12.0],
+        "delivered_volume_mwh": [9.0, 11.0],
+    })
+
+    result = frame_completeness(df, "timestamp_Ams")
+
+    assert result["overall_status"] == "complete"
+    assert all(source["status"] == "complete" for source in result["sources"])
+
+
+def test_monthly_completeness_reports_per_month_status():
+    df = pd.DataFrame({
+        "timestamp_Ams": pd.to_datetime(["2026-01-01 00:00", "2026-02-01 00:00"]),
+        "epex_eur_per_mwh": [50.0, 60.0],
+        "nominated_volume_mwh": [np.nan, 12.0],  # January nomination missing
+        "delivered_volume_mwh": [9.0, 11.0],
+    })
+
+    result = monthly_completeness(df, "timestamp_Ams")
+
+    assert result["by_month"]["2026-01"] == "partial"
+    assert result["by_month"]["2026-02"] == "complete"
+    assert result["overall"]["overall_status"] == "partial"
+
+
+def test_month_coverage_flags_partial_current_month():
+    df = pd.DataFrame({
+        "timestamp_Ams": pd.to_datetime([
+            "2026-06-01 00:00", "2026-06-30 23:45",  # June fully elapsed
+            "2026-07-01 00:00", "2026-07-22 23:45",  # July partial
+        ]),
+        "delivered_volume_mwh": [1.0, 2.0, 3.0, 4.0],
+    })
+
+    cov = month_coverage(df, "timestamp_Ams")
+
+    assert cov["2026-06"]["is_partial"] is False
+    assert cov["2026-06"]["label"] == "Jun 2026"
+    assert cov["2026-07"]["is_partial"] is True
+    assert cov["2026-07"]["days_covered"] == 22
+    assert cov["2026-07"]["days_in_month"] == 31
+    assert cov["2026-07"]["coverage_through"] == "2026-07-22"
+
+
+def test_monthly_projection_extrapolates_only_additive_partial_metrics():
+    df = pd.DataFrame({
+        "timestamp_Ams": pd.to_datetime([
+            "2026-06-15 00:00", "2026-06-30 23:45",  # June reaches month end -> complete
+            "2026-07-01 00:00", "2026-07-10 23:45",  # July partial: 10 of 31 days
+        ]),
+        "delivered_volume_mwh": [1.0, 2.0, 3.0, 4.0],
+    })
+
+    proj = monthly_projection(df, "timestamp_Ams")
+
+    assert "2026-06" not in proj  # completed month is not projected
+    july = proj["2026-07"]
+    assert july["days_covered"] == 10
+    assert july["days_in_month"] == 31
+    assert july["factor"] == pytest.approx(31 / 10)
+    assert "Delivered volume MWh" in july["metrics"]
+    assert "Total revenue EUR" in july["metrics"]
+    assert "Total capture price EUR/MWh" not in july["metrics"]  # rate: never extrapolated
+
+
+def test_greenchoice_contract_behavior_across_epex_signs():
+    from app_core.contracts import OFFICIAL_GREENCHOICE_TERMS
+
+    terms = OFFICIAL_GREENCHOICE_TERMS[0]
+    df = pd.DataFrame({
+        "delivered_volume_mwh": [10.0, 10.0, 10.0],
+        "epex_eur_per_mwh": [100.0, 0.0, -50.0],  # positive, zero, negative EPEX
+        "total_revenue": [0.0, 0.0, 0.0],
+    })
+
+    out = add_greenchoice_benchmark(
+        df,
+        "delivered_volume_mwh",
+        "epex_eur_per_mwh",
+        terms.afslag_pct / 100,  # add_greenchoice_benchmark takes a fraction
+        terms.afslag_floor,
+        terms.gvo_value,
+    )
+
+    # afslag = max(epex * 0.17, floor 10); net = epex - afslag + gvo; billable = max(net, 0)
+    assert out["greenchoice_afslag_eur_per_mwh"].tolist() == pytest.approx([17.0, 10.0, 10.0])
+    assert out["greenchoice_billable_price_eur_per_mwh"].tolist() == pytest.approx([83.0, 0.0, 0.0])
+    assert out["greenchoice_revenue"].tolist() == pytest.approx([830.0, 0.0, 0.0])
+
+
+def test_commercial_basis_labels_official_vs_scenario():
+    from app_core.contracts import commercial_basis
+
+    official = commercial_basis(17.0, 10.0, 0.0)
+    assert official["greenchoice"]["basis"] == "Official"
+    assert official["greenchoice"]["differences"] == []
+    assert official["strike"]["basis"] == "Scenario"
+
+    scenario = commercial_basis(20.0, 10.0, 0.0)
+    assert scenario["greenchoice"]["basis"] == "Scenario"
+    assert scenario["greenchoice"]["differences"]
 
 
 def test_shared_core_does_not_import_streamlit():

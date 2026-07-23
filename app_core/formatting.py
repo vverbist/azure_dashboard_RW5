@@ -5,24 +5,31 @@ import pandas as pd
 from .metadata import CURRENCY_UNIT, PRICE_UNIT
 
 
+def _num(value, decimals: int) -> str:
+    """Format a number with thousands separators, collapsing negative zero
+    (including values that round to -0) to a plain 0 for display and export."""
+    rounded = round(float(value), decimals) + 0.0
+    return f"{rounded:,.{decimals}f}"
+
+
 def format_value(value, unit: str, decimals: int = 2) -> str:
     if pd.isna(value):
         return "-"
     if unit in {CURRENCY_UNIT, "EUR"}:
-        return f"€{value:,.0f}"
+        return f"€{_num(value, 0)}"
     if unit in {PRICE_UNIT, "EUR/MWh"}:
-        return f"{value:,.{decimals}f} €/MWh"
+        return f"{_num(value, decimals)} €/MWh"
     if unit == "MWh":
-        return f"{value:,.{decimals}f} MWh"
+        return f"{_num(value, decimals)} MWh"
     if unit == "%":
         return f"{value:,.2%}" if abs(value) <= 1 else f"{value:,.2f}%"
     if unit == "ratio":
-        return f"{value:,.3f}"
+        return _num(value, 3)
     if unit == "count":
         return f"{int(value):,}" if pd.notna(value) else "-"
     if unit == "hours":
-        return f"{value:,.{decimals}f} h"
-    return f"{value:,.2f}"
+        return f"{_num(value, decimals)} h"
+    return _num(value, 2)
 
 
 def format_summary_table(summary: pd.DataFrame) -> pd.DataFrame:

@@ -2,7 +2,14 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends
 
-from app_core.monthly import make_monthly_chart_source, make_monthly_kpi_table, make_monthly_numeric_table
+from app_core.completeness import monthly_completeness
+from app_core.monthly import (
+    make_monthly_chart_source,
+    make_monthly_kpi_table,
+    make_monthly_numeric_table,
+    month_coverage,
+    monthly_projection,
+)
 from app_core.scada import make_scada_monthly_payload
 from app_core.serialization import dataframe_records, to_jsonable
 
@@ -36,4 +43,7 @@ def get_monthly(query: ApiDashboardQuery = Depends(dashboard_query)):
             "series": chart_series,
         },
         "scada": make_scada_monthly_payload(full, query.settings.timestamp_col),
+        "completeness": monthly_completeness(full, query.settings.timestamp_col),
+        "month_coverage": month_coverage(full, query.settings.timestamp_col),
+        "projection": monthly_projection(full, query.settings.timestamp_col),
     }

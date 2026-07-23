@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+from datetime import date
+
 from fastapi import APIRouter, Depends
 
 from app_core.benchmarks import summarize_greenchoice, summarize_strike_price
 from app_core.calculations import calculate_summary_table, make_variance_table
+from app_core.completeness import frame_completeness
+from app_core.contracts import commercial_basis
 from app_core.dashboard import (
     build_executive_narrative,
     build_headline_kpis,
@@ -26,15 +30,24 @@ def get_summary(query: ApiDashboardQuery = Depends(dashboard_query)):
     variance = make_variance_table(df)
     greenchoice_summary = summarize_greenchoice(df)
     strike_summary = summarize_strike_price(df)
+    settings = query.settings
+    basis = commercial_basis(
+        settings.greenchoice_afslag_pct,
+        settings.greenchoice_afslag_floor,
+        settings.gvo_value,
+        settings.start_date if isinstance(settings.start_date, date) else None,
+    )
 
     return {
         "dataset": blob_name,
+        "commercial_basis": basis,
         "context": {
             "period": format_period_label(df, query.settings.timestamp_col),
             "rows": len(df),
             "source_rows": len(raw),
             "granularity": query.settings.resampling_rule,
             "data_available_through": latest_data_date(full, query.settings.timestamp_col),
+            "completeness": frame_completeness(df, query.settings.timestamp_col),
         },
         "headline_kpis": clean_items(build_headline_kpis(df, summary)),
         "executive_narrative": build_executive_narrative(df, summary, variance),

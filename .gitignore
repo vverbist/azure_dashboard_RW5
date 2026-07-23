@@ -4,6 +4,7 @@ data/
 *.csv
 *.parquet
 *.log
+*.pid
 __pycache__/
 *.pyc
 .streamlit/secrets.toml

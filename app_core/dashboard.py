@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 
 from .benchmarks import add_greenchoice_benchmark, add_strike_price_diagnostic
+from .contracts import commercial_basis
 from .calculations import (
     add_diagnostic_columns,
     calculate_summary_table,
@@ -33,7 +34,7 @@ class DashboardSettings:
     start_date: date | str | None = None
     end_date: date | str | None = None
     resampling_rule: str = "Original"
-    greenchoice_afslag_pct: float = 0.17
+    greenchoice_afslag_pct: float = 17.0  # percentage number (17 == 17%), normalized via normalized_afslag_pct
     greenchoice_afslag_floor: float = 10.0
     gvo_value: float = 0.0
     strike_price: float = 0.0
@@ -109,8 +110,8 @@ def build_executive_narrative(df: pd.DataFrame, summary_table: pd.DataFrame, var
     total_revenue = summary_table.loc["Revenue", "Total"] if "Total" in summary_table.columns else np.nan
     rev_vs_epex_series = variance_table.loc[variance_table["Metric"] == "Revenue vs EPEX", "Value"] if not variance_table.empty else pd.Series(dtype=float)
     rev_vs_epex = rev_vs_epex_series.iloc[0] if len(rev_vs_epex_series) else np.nan
-    rev_vs_gc = df["revenue_vs_greenchoice_calc"].sum() if "revenue_vs_greenchoice_calc" in df.columns else np.nan
-    strike_rev = df["strike_nomination_revenue"].sum() if "strike_nomination_revenue" in df.columns else np.nan
+    rev_vs_gc = df["revenue_vs_greenchoice_calc"].sum(min_count=1) if "revenue_vs_greenchoice_calc" in df.columns else np.nan
+    strike_rev = df["strike_nomination_revenue"].sum(min_count=1) if "strike_nomination_revenue" in df.columns else np.nan
     below_count = int(df["is_below_strike"].sum()) if "is_below_strike" in df.columns else 0
 
     bullets = []
@@ -132,9 +133,9 @@ def build_headline_kpis(df: pd.DataFrame, summary_table: pd.DataFrame) -> list[d
     total_capture = summary_table.loc["Capture price", "Total"]
     delivered_volume = summary_table.loc["Volume", "Total"]
     nominated_volume = summary_table.loc["Volume", "EPEX"]
-    rev_vs_epex = df["revenue_vs_epex_calc"].sum() if "revenue_vs_epex_calc" in df.columns else np.nan
-    rev_vs_greenchoice = df["revenue_vs_greenchoice_calc"].sum() if "revenue_vs_greenchoice_calc" in df.columns else np.nan
-    strike_revenue = df["strike_nomination_revenue"].sum() if "strike_nomination_revenue" in df.columns else np.nan
+    rev_vs_epex = df["revenue_vs_epex_calc"].sum(min_count=1) if "revenue_vs_epex_calc" in df.columns else np.nan
+    rev_vs_greenchoice = df["revenue_vs_greenchoice_calc"].sum(min_count=1) if "revenue_vs_greenchoice_calc" in df.columns else np.nan
+    strike_revenue = df["strike_nomination_revenue"].sum(min_count=1) if "strike_nomination_revenue" in df.columns else np.nan
     below_strike_count = int(df["is_below_strike"].sum()) if "is_below_strike" in df.columns else 0
 
     return [
@@ -149,6 +150,19 @@ def build_headline_kpis(df: pd.DataFrame, summary_table: pd.DataFrame) -> list[d
 
 
 def selected_assumptions_table(settings: DashboardSettings) -> pd.DataFrame:
+    basis = commercial_basis(
+        settings.greenchoice_afslag_pct,
+        settings.greenchoice_afslag_floor,
+        settings.gvo_value,
+        settings.start_date if isinstance(settings.start_date, date) else None,
+    )
+    greenchoice = basis["greenchoice"]
+    greenchoice_basis_label = (
+        "Official"
+        if greenchoice["basis"] == "Official"
+        else f"Scenario ({'; '.join(greenchoice['differences'])})"
+    )
+
     return pd.DataFrame([
         {"Setting": "Greenchoice volume column", "Value": settings.greenchoice_volume_col},
         {"Setting": "EPEX price column", "Value": settings.epex_price_col},
@@ -156,7 +170,9 @@ def selected_assumptions_table(settings: DashboardSettings) -> pd.DataFrame:
         {"Setting": "Greenchoice afslag", "Value": f"{settings.normalized_afslag_pct:.1%}"},
         {"Setting": "Greenchoice afslag floor", "Value": format_value(settings.greenchoice_afslag_floor, "€/MWh")},
         {"Setting": "GvO", "Value": format_value(settings.gvo_value, "€/MWh")},
+        {"Setting": "Greenchoice basis", "Value": greenchoice_basis_label},
         {"Setting": "Strike price", "Value": format_value(settings.strike_price, "€/MWh")},
+        {"Setting": "Strike price basis", "Value": "Scenario (what-if, not contractual)"},
     ])
 
 

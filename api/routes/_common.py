@@ -8,8 +8,13 @@ from fastapi import HTTPException, Query
 from fastapi.responses import Response
 
 from app_core.dashboard import DashboardSettings, prepare_dashboard_frames
+from app_core.metadata import CHART_GROUPS, RESAMPLING_RULES
 from app_core.serialization import to_jsonable
 from app_core.storage import StorageConfigurationError, list_csv_blobs, read_blob_csv
+
+# Default Greenchoice afslag as a percentage number (17 == 17%). Keep in sync with the
+# frontend control default in frontend/static/dashboard/state.js.
+DEFAULT_AFSLAG_PERCENTAGE = 17.0
 
 
 @dataclass(frozen=True)
@@ -20,23 +25,43 @@ class ApiDashboardQuery:
     chart_group: str = "Volumes"
 
 
+def _validate_choice(value: str, allowed, name: str) -> None:
+    if value not in allowed:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid {name} '{value}'. Allowed values: {sorted(allowed)}.",
+        )
+
+
 def dashboard_query(
     dataset: str | None = Query(default=None, description="Azure Blob CSV name. Defaults to latest exports/*.csv."),
     timestamp_col: str = Query(default="timestamp_Ams"),
     start_date: date | None = Query(default=None),
     end_date: date | None = Query(default=None),
-    resampling_rule: str = Query(default="Original"),
-    greenchoice_afslag_pct: float | None = Query(default=None, description="Greenchoice discount as 0.17 or 17."),
-    greenchoice_afslag_percentage: float | None = Query(default=None, description="Alias for greenchoice_afslag_pct."),
-    greenchoice_afslag_floor: float = Query(default=10.0),
-    gvo_value: float = Query(default=0.0),
+    resampling_rule: str = Query(default="Original", description="Chart resolution; one of RESAMPLING_RULES."),
+    greenchoice_afslag_percentage: float | None = Query(
+        default=None,
+        ge=0,
+        le=100,
+        description="Greenchoice discount as a percentage number: 17 = 17%, 0.5 = 0.5%, 100 = 100%.",
+    ),
+    greenchoice_afslag_pct: float | None = Query(
+        default=None,
+        ge=0,
+        le=100,
+        description="Deprecated alias for greenchoice_afslag_percentage; same percentage semantics.",
+    ),
+    greenchoice_afslag_floor: float = Query(default=10.0, ge=0),
+    gvo_value: float = Query(default=0.0, ge=0),
     strike_price: float = Query(default=0.0),
     row_count: int = Query(default=10, ge=1, le=100),
     chart_group: str = Query(default="Volumes"),
 ) -> ApiDashboardQuery:
+    _validate_choice(resampling_rule, RESAMPLING_RULES, "resampling_rule")
+    _validate_choice(chart_group, CHART_GROUPS, "chart_group")
     afslag = greenchoice_afslag_percentage if greenchoice_afslag_percentage is not None else greenchoice_afslag_pct
     if afslag is None:
-        afslag = 0.17
+        afslag = DEFAULT_AFSLAG_PERCENTAGE
     settings = DashboardSettings(
         timestamp_col=timestamp_col,
         start_date=start_date,

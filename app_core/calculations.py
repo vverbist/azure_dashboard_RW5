@@ -13,11 +13,16 @@ def safe_div(a, b):
     return a / b if b not in [0, None] and pd.notna(b) else np.nan
 
 
-def normalize_percentage(value: float | int | None, default: float = 0.17) -> float:
+def normalize_percentage(value: float | int | None, default: float = 17.0) -> float:
+    """Convert a percentage number to a fraction: 17 -> 0.17, 0.5 -> 0.005, 100 -> 1.0.
+
+    The input is always interpreted as a percentage. There is no "values <= 1 are
+    already fractions" heuristic, so `1` unambiguously means 1% and `100` means 100%.
+    A `None` value falls back to `default`, which is itself a percentage number.
+    """
     if value is None:
-        return default
-    value = float(value)
-    return value / 100.0 if value > 1 else value
+        value = default
+    return float(value) / 100.0
 
 
 def parse_time_column(df: pd.DataFrame, time_col: str) -> pd.DataFrame:
@@ -35,6 +40,9 @@ def filter_by_date_range(
     end_date: date | str | None = None,
 ) -> pd.DataFrame:
     out = df.copy()
+    if start_date is not None and end_date is not None:
+        if pd.Timestamp(start_date).date() > pd.Timestamp(end_date).date():
+            raise ValueError("start_date must be on or before end_date.")
     if start_date is not None:
         start = pd.Timestamp(start_date).date()
         out = out[out[time_col].dt.date >= start]
@@ -58,13 +66,13 @@ def aggregate_values(df: pd.DataFrame, value_cols: list[str], unit_map: dict[str
     values = {}
     for col in value_cols:
         agg = agg_for_col(col)
-        value = df[col].sum() if agg == "sum" else df[col].mean()
+        value = df[col].sum(min_count=1) if agg == "sum" else df[col].mean()
         values[col] = format_value(value, unit_map[col])
     return values
 
 
 def calculate_summary_table(df: pd.DataFrame) -> pd.DataFrame:
-    total = df.sum(numeric_only=True)
+    total = df.sum(numeric_only=True, min_count=1)
     delivered = total.get("delivered_volume_mwh", np.nan)
     nominated = total.get("nominated_volume_mwh", np.nan)
     volume_imbalance_mwh = delivered - nominated if pd.notna(delivered) and pd.notna(nominated) else np.nan
@@ -117,7 +125,7 @@ def add_diagnostic_columns(df: pd.DataFrame) -> pd.DataFrame:
 
 def make_variance_table(df: pd.DataFrame) -> pd.DataFrame:
     rows = []
-    total = df.sum(numeric_only=True)
+    total = df.sum(numeric_only=True, min_count=1)
     if {"total_revenue", "epex_revenue"}.issubset(df.columns):
         total_rev = total.get("total_revenue", np.nan)
         epex_rev = total.get("epex_revenue", np.nan)

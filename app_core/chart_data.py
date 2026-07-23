@@ -35,7 +35,7 @@ def revenue_bridge_components(summary: pd.DataFrame) -> list[dict]:
 
 
 def greenchoice_bridge_components(df: pd.DataFrame) -> list[dict]:
-    total = df.sum(numeric_only=True)
+    total = df.sum(numeric_only=True, min_count=1)
     actual = total.get("total_revenue", np.nan)
     benchmark = total.get("greenchoice_revenue", np.nan)
     delta = total.get("revenue_vs_greenchoice_calc", np.nan)

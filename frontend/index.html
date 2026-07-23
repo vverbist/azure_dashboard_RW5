@@ -11,7 +11,7 @@
       href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800;900&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/static/styles.css?v=20260721b" />
+    <link rel="stylesheet" href="/static/styles.css?v=20260723d" />
     <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
   </head>
   <body>
@@ -165,6 +165,14 @@
           </div>
         </header>
 
+        <div
+          id="completeness-strip"
+          class="completeness-strip"
+          role="status"
+          aria-live="polite"
+          hidden
+        ></div>
+
         <nav class="tabs" aria-label="Dashboard sections">
           <button class="tab-button active" data-tab="monthly">
             Monthly overview
@@ -190,6 +198,7 @@
               <div class="download-row" id="monthly-downloads"></div>
             </div>
             <div id="monthly-table"></div>
+            <p id="monthly-partial-note" class="partial-note" hidden></p>
           </section>
           <div class="chart-grid">
             <div id="monthly-chart-1" class="chart-frame"></div>
@@ -340,6 +349,6 @@
     </div>
 
     <div id="error-banner" class="error-banner" hidden></div>
-    <script type="module" src="/static/dashboard/main.js?v=20260721b"></script>
+    <script type="module" src="/static/dashboard/main.js?v=20260723d"></script>
   </body>
 </html>

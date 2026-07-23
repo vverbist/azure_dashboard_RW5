@@ -69,7 +69,7 @@ def add_strike_price_diagnostic(
 def summarize_greenchoice(df: pd.DataFrame) -> pd.DataFrame:
     if "greenchoice_revenue" not in df.columns:
         return pd.DataFrame()
-    total = df.sum(numeric_only=True)
+    total = df.sum(numeric_only=True, min_count=1)
     greenchoice = total.get("greenchoice_revenue", np.nan)
     actual = total.get("total_revenue", np.nan)
     volume = total.get("delivered_volume_mwh", np.nan)
@@ -88,8 +88,8 @@ def summarize_strike_price(df: pd.DataFrame) -> pd.DataFrame:
     if "strike_nomination_revenue" not in df.columns:
         return pd.DataFrame()
     below = df[df.get("is_below_strike", False)]
-    total_revenue = df["strike_nomination_revenue"].sum()
-    total_volume = df["strike_volume_mwh"].sum() if "strike_volume_mwh" in df.columns else np.nan
+    total_revenue = df["strike_nomination_revenue"].sum(min_count=1)
+    total_volume = df["strike_volume_mwh"].sum(min_count=1) if "strike_volume_mwh" in df.columns else np.nan
     rows = [
         {"Metric": "Periods below strike", "Value": len(below), "Unit": "count", "Interpretation": "Number of rows where EPEX was below the configured strike price."},
         {"Metric": "Nominated volume below strike", "Value": total_volume, "Unit": "MWh", "Interpretation": "Nominated volume exposed during below-strike periods."},

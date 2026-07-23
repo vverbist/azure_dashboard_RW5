@@ -4,6 +4,11 @@ FastAPI backend plus a buildless static JS frontend: `api/main.py` serves `front
 
 The shared calculation and data-preparation code lives in `app_core/`.
 
+## Roadmap
+
+The prioritized improvement plan, acceptance criteria, and open product
+decisions are maintained in [`docs/roadmap.md`](docs/roadmap.md).
+
 ## Environment Variables
 
 Required when loading from Azure Blob Storage:

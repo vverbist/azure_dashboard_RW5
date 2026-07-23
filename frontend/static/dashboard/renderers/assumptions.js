@@ -1,7 +1,7 @@
 import { getElement } from "../dom.js";
 import { escapeHtml, formatCell, timestampLabel } from "../formatters.js";
 
-export function renderAssumptionStrip(state) {
+export function renderAssumptionStrip(state, basis) {
   const items = [
     [
       "Greenchoice afslag",
@@ -13,14 +13,30 @@ export function renderAssumptionStrip(state) {
     ["Timezone", timestampLabel(state.timestamp_col)],
   ];
 
-  getElement("assumption-strip").innerHTML = items
-    .map(
-      ([label, value]) => `
+  const greenchoice = basis?.greenchoice;
+  const basisChip = greenchoice
+    ? `<div class="assumption-chip basis-${
+        greenchoice.basis === "Official" ? "official" : "scenario"
+      }" title="${escapeHtml(
+        greenchoice.differences?.length
+          ? greenchoice.differences.join("; ")
+          : "Matches the official contract terms.",
+      )}">
+        <span>Greenchoice basis</span>
+        <strong>${escapeHtml(greenchoice.basis)}</strong>
+      </div>`
+    : "";
+
+  getElement("assumption-strip").innerHTML =
+    basisChip +
+    items
+      .map(
+        ([label, value]) => `
       <div class="assumption-chip">
         <span>${escapeHtml(label)}</span>
         <strong>${escapeHtml(value)}</strong>
       </div>
     `,
-    )
-    .join("");
+      )
+      .join("");
 }
