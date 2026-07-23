@@ -340,13 +340,6 @@ label {
   font-weight: 900;
 }
 
-.context-row {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-  gap: 16px;
-}
-
-.context-item,
 .kpi-card {
   background: #fff;
   border: 1px solid var(--line);
@@ -354,7 +347,6 @@ label {
   padding: 18px;
 }
 
-.context-label,
 .kpi-label {
   color: var(--muted);
   font-size: 12px;
@@ -362,11 +354,10 @@ label {
   text-transform: uppercase;
 }
 
-.context-value,
 .kpi-value {
   color: var(--navy);
   font-size: 20px;
-  font-weight: 850;
+  font-weight: 400;
   margin-top: 6px;
 }
 
@@ -378,7 +369,7 @@ label {
 
 .kpi-status {
   color: var(--green-dark);
-  font-weight: 800;
+  font-weight: 400;
   margin-top: 6px;
 }
 
@@ -636,12 +627,20 @@ th.sticky-col {
 .scada-period-table th:first-child,
 .scada-period-table td:first-child {
   white-space: normal;
-  width: 62%;
+  width: 56%;
 }
 
-.scada-period-table th:last-child,
-.scada-period-table td:last-child {
-  width: 38%;
+.scada-period-table th:nth-child(2),
+.scada-period-table td:nth-child(2),
+.scada-period-table th:nth-child(3),
+.scada-period-table td:nth-child(3) {
+  text-align: right;
+  width: 22%;
+}
+
+.monthly-kpi-table.scada-period-table tbody td {
+  color: var(--text);
+  font-weight: 400;
 }
 
 .table-cell-stack {
@@ -671,6 +670,7 @@ th.sticky-col {
 }
 
 #scada-coverage-note {
+  font-weight: 400;
   margin-top: 6px;
 }
 
@@ -771,7 +771,6 @@ th.sticky-col {
     justify-content: flex-start;
   }
 
-  .context-row,
   .kpi-grid,
   .chart-grid,
   .chart-grid.two,

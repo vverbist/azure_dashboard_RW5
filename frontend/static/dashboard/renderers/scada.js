@@ -58,6 +58,21 @@ function scadaMonthlyCellContent(row, column) {
   return { type: "text", text: value };
 }
 
+function makeScadaPeriodRows(rows) {
+  return (rows || []).map((row) => {
+    const value = row?.["Selected period"];
+    const isStructured =
+      value &&
+      typeof value === "object" &&
+      Object.hasOwn(value, "primary");
+    return {
+      [SCADA_METRIC_COLUMN]: row?.[SCADA_METRIC_COLUMN],
+      "Selected period": isStructured ? value.primary : value,
+      "% of wind potential": isStructured ? value.secondary || "" : "",
+    };
+  });
+}
+
 function renderScadaMonthlyChart(payload) {
   const target = getElement("scada-monthly-chart");
   const rows = payload?.chart_rows || [];
@@ -242,10 +257,14 @@ export function renderScadaEnvelope(payload) {
     return;
   }
 
-  renderTable("scada-period-table", payload?.table || [], {
+  renderTable("scada-period-table", makeScadaPeriodRows(payload?.table), {
     tableClass: "monthly-kpi-table scada-period-table",
     rowClassName: scadaMonthlyRowClass,
-    renderCellContent: scadaMonthlyCellContent,
+    columns: [
+      { key: SCADA_METRIC_COLUMN, label: "SCADA metric" },
+      { key: "Selected period", label: "Selected period" },
+      { key: "% of wind potential", label: "% of wind potential" },
+    ],
   });
 
   const coverage = Number(payload.coverage_pct);

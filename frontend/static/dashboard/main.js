@@ -17,7 +17,6 @@ import { escapeHtml } from "./formatters.js";
 import { updateState } from "./state.js";
 import { renderAssumptionStrip } from "./renderers/assumptions.js";
 import {
-  renderContext,
   renderDataAvailability,
   renderScadaDataAvailability,
   renderSelectedPeriodScope,
@@ -142,7 +141,6 @@ function renderSummary(summary) {
   renderDataAvailability(summary.context?.data_available_through);
   renderSelectedPeriodScope(summary.context);
   renderAssumptionStrip(currentState());
-  renderContext(summary.context);
   renderKpis(summary.headline_kpis);
   renderNarrative(summary.executive_narrative);
   renderTable(

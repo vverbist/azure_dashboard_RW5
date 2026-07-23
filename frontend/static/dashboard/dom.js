@@ -22,7 +22,6 @@ const REQUIRED_ELEMENT_IDS = [
   "selected-period-scope",
   "assumption-strip",
   "inspection-strip",
-  "context",
   "kpis",
   "narrative",
   "commercial-table",
