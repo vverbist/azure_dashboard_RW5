@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends
 
 from app_core.monthly import make_monthly_chart_source, make_monthly_kpi_table, make_monthly_numeric_table
+from app_core.scada import make_scada_monthly_payload
 from app_core.serialization import dataframe_records, to_jsonable
 
 from ._common import ApiDashboardQuery, dashboard_query, load_prepared_frames
@@ -34,5 +35,5 @@ def get_monthly(query: ApiDashboardQuery = Depends(dashboard_query)):
             "metrics": chart_metrics,
             "series": chart_series,
         },
+        "scada": make_scada_monthly_payload(full, query.settings.timestamp_col),
     }
-

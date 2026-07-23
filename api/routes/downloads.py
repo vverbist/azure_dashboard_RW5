@@ -8,6 +8,7 @@ from app_core.calculations import calculate_summary_table, make_variance_table
 from app_core.formatting import format_summary_table, format_variance_table
 from app_core.metadata import ANOMALY_SPECS
 from app_core.monthly import make_monthly_kpi_table, make_monthly_numeric_table
+from app_core.scada import make_scada_monthly_download_table, make_scada_monthly_numeric
 
 from ._common import ApiDashboardQuery, csv_response, dashboard_query, load_prepared_frames
 
@@ -46,6 +47,20 @@ def download_monthly_numeric(query: ApiDashboardQuery = Depends(dashboard_query)
     _blob_name, _raw, _df, full = load_prepared_frames(query)
     table = make_monthly_numeric_table(full, query.settings.timestamp_col)
     return csv_response(table, "monthly_kpi_numeric.csv")
+
+
+@router.get("/downloads/scada-monthly-overview")
+def download_scada_monthly_overview(query: ApiDashboardQuery = Depends(dashboard_query)):
+    _blob_name, _raw, _df, full = load_prepared_frames(query)
+    table = make_scada_monthly_download_table(full, query.settings.timestamp_col)
+    return csv_response(table, "scada_monthly_overview.csv")
+
+
+@router.get("/downloads/scada-monthly-numeric")
+def download_scada_monthly_numeric(query: ApiDashboardQuery = Depends(dashboard_query)):
+    _blob_name, _raw, _df, full = load_prepared_frames(query)
+    table = make_scada_monthly_numeric(full, query.settings.timestamp_col)
+    return csv_response(table, "scada_monthly_numeric.csv")
 
 
 @router.get("/downloads/anomalies/{anomaly_type}")

@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from api.routes import anomalies, bridges, datasets, downloads, monthly, quality, summary, timeseries
+from api.routes import anomalies, bridges, datasets, downloads, monthly, quality, scada, summary, timeseries
 
 app = FastAPI(title="RW5 Revenue Dashboard API", version="1.0.0")
 
@@ -30,6 +30,7 @@ async def no_cache_static(request, call_next):
 app.include_router(datasets.router, prefix="/api")
 app.include_router(summary.router, prefix="/api")
 app.include_router(monthly.router, prefix="/api")
+app.include_router(scada.router, prefix="/api")
 app.include_router(bridges.router, prefix="/api")
 app.include_router(timeseries.router, prefix="/api")
 app.include_router(anomalies.router, prefix="/api")
