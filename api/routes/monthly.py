@@ -12,6 +12,7 @@ from app_core.monthly import (
 )
 from app_core.scada import make_scada_monthly_payload
 from app_core.serialization import dataframe_records, to_jsonable
+from app_core.storage import cached_dataset_version
 
 from ._common import ApiDashboardQuery, dashboard_query, load_prepared_frames
 
@@ -35,6 +36,7 @@ def get_monthly(query: ApiDashboardQuery = Depends(dashboard_query)):
     ]
     return {
         "dataset": blob_name,
+        "dataset_version": cached_dataset_version(blob_name),
         "monthly_kpi_table": dataframe_records(kpi_table),
         "numeric_monthly_export": dataframe_records(numeric),
         "chart_data": {

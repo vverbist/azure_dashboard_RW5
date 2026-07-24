@@ -8,6 +8,7 @@ from app_core.benchmarks import summarize_greenchoice, summarize_strike_price
 from app_core.calculations import calculate_summary_table, make_variance_table
 from app_core.completeness import frame_completeness
 from app_core.contracts import commercial_basis
+from app_core.storage import cached_dataset_version
 from app_core.dashboard import (
     build_executive_narrative,
     build_headline_kpis,
@@ -40,6 +41,7 @@ def get_summary(query: ApiDashboardQuery = Depends(dashboard_query)):
 
     return {
         "dataset": blob_name,
+        "dataset_version": cached_dataset_version(blob_name),
         "commercial_basis": basis,
         "context": {
             "period": format_period_label(df, query.settings.timestamp_col),

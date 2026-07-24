@@ -68,9 +68,12 @@ def _with_diagnostics(df: pd.DataFrame, settings: DashboardSettings) -> pd.DataF
 
 def prepare_dashboard_frames(raw_df: pd.DataFrame, settings: DashboardSettings) -> tuple[pd.DataFrame, pd.DataFrame]:
     parsed = parse_time_column(raw_df, settings.timestamp_col)
-    selected = filter_by_date_range(parsed, settings.timestamp_col, settings.start_date, settings.end_date)
+    # Diagnostics are row-wise, so compute them once on the full frame and slice the
+    # selected period out of the result rather than diagnosing both frames separately.
+    full = _with_diagnostics(parsed, settings)
+    selected = filter_by_date_range(full, settings.timestamp_col, settings.start_date, settings.end_date)
 
-    return _with_diagnostics(selected, settings), _with_diagnostics(parsed, settings)
+    return selected, full
 
 
 def format_period_label(df: pd.DataFrame, time_col: str) -> str:

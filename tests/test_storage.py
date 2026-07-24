@@ -50,3 +50,47 @@ def test_read_blob_csv_accepts_exports_without_scada_flags(monkeypatch):
     result = storage.read_blob_csv("monthly/2026/2026-01.csv")
 
     assert result.to_dict(orient="records") == [{"timestamp": "2026-01-01", "value": 1.5}]
+
+
+class _Props:
+    def __init__(self, etag: str):
+        self.etag = etag
+
+
+class _BlobClient:
+    def __init__(self, container: "_CountingContainer"):
+        self.container = container
+
+    def get_blob_properties(self) -> _Props:
+        return _Props(self.container.etag)
+
+
+class _CountingContainer:
+    def __init__(self, contents: bytes, etag: str):
+        self.contents = contents
+        self.etag = etag
+        self.downloads = 0
+
+    def get_blob_client(self, blob_name: str) -> _BlobClient:
+        return _BlobClient(self)
+
+    def download_blob(self, blob_name: str) -> _DownloadedBlob:
+        self.downloads += 1
+        return _DownloadedBlob(self.contents)
+
+
+def test_read_blob_csv_caches_by_etag(monkeypatch):
+    storage._CSV_CACHE.clear()
+    container = _CountingContainer(b"timestamp,value\n2026-01-01,1.5\n", '"etag-1"')
+    monkeypatch.setattr(storage, "get_container_client", lambda **kwargs: container)
+
+    first = storage.read_blob_csv("exports/x.csv")
+    second = storage.read_blob_csv("exports/x.csv")
+
+    assert container.downloads == 1  # second call served from cache
+    assert first.equals(second)
+    assert storage.cached_dataset_version("exports/x.csv") == '"etag-1"'
+
+    container.etag = '"etag-2"'  # a new version invalidates the cache
+    storage.read_blob_csv("exports/x.csv")
+    assert container.downloads == 2
