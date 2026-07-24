@@ -30,7 +30,11 @@ app.add_middleware(
 @app.middleware("http")
 async def no_cache_static(request, call_next):
     response = await call_next(request)
-    if request.url.path.startswith("/static/"):
+    # No-cache the versioned static assets and the HTML shell (served at "/" and via the
+    # SPA catch-all). Without this the browser can hold a stale index.html after a deploy
+    # and keep loading old ?v= assets until its cache expires.
+    content_type = response.headers.get("content-type", "")
+    if request.url.path.startswith("/static/") or content_type.startswith("text/html"):
         response.headers["Cache-Control"] = "no-cache"
     return response
 
