@@ -371,6 +371,28 @@ label {
   color: var(--warning);
 }
 
+.user-badge {
+  align-items: center;
+  color: var(--muted);
+  display: flex;
+  font-size: 12px;
+  font-weight: 700;
+  gap: 8px;
+}
+
+.user-badge .user-name {
+  color: var(--text);
+}
+
+.user-badge .user-signout {
+  color: var(--blue);
+  text-decoration: none;
+}
+
+.user-badge .user-signout:hover {
+  text-decoration: underline;
+}
+
 .clear-inspection-button {
   background: transparent;
   border: 1px solid #d8a31f;

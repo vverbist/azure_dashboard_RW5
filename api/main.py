@@ -1,15 +1,23 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from api.routes import anomalies, bridges, datasets, downloads, monthly, quality, scada, summary, timeseries
+from api.routes import anomalies, auth, bridges, datasets, downloads, monthly, quality, scada, summary, timeseries
+from app_core.auth import current_user
 
 app = FastAPI(title="RW5 Revenue Dashboard API", version="1.0.0")
+
+# Optional defense-in-depth behind Azure App Service Authentication (Easy Auth). The
+# platform gate is the real access control; enabling REQUIRE_AUTH additionally rejects any
+# /api request that arrives without an Easy Auth identity. Off by default so local dev and
+# a not-yet-gated deployment keep working.
+REQUIRE_AUTH = os.getenv("REQUIRE_AUTH", "").strip().lower() in {"1", "true", "yes", "on"}
 
 app.add_middleware(
     CORSMiddleware,
@@ -27,6 +35,14 @@ async def no_cache_static(request, call_next):
     return response
 
 
+@app.middleware("http")
+async def enforce_auth(request, call_next):
+    if REQUIRE_AUTH and request.url.path.startswith("/api/") and current_user(request.headers) is None:
+        return JSONResponse({"detail": "Authentication required."}, status_code=401)
+    return await call_next(request)
+
+
+app.include_router(auth.router, prefix="/api")
 app.include_router(datasets.router, prefix="/api")
 app.include_router(summary.router, prefix="/api")
 app.include_router(monthly.router, prefix="/api")

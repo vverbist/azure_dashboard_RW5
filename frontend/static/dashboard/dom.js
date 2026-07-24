@@ -19,6 +19,7 @@ const REQUIRED_ELEMENT_IDS = [
   "data-available-through",
   "scada-data-available-through",
   "completeness-strip",
+  "user-badge",
   "error-banner",
   "selected-period-scope",
   "assumption-strip",

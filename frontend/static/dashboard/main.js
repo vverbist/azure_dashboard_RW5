@@ -22,6 +22,7 @@ import {
   renderSelectedPeriodScope,
 } from "./renderers/context.js";
 import { renderCompleteness } from "./renderers/completeness.js";
+import { renderUserBadge } from "./renderers/user.js";
 import { renderDownloads } from "./renderers/downloads.js";
 import { renderKpis, renderNarrative } from "./renderers/kpis.js";
 import { renderMonthly, renderMonthlyError } from "./renderers/monthly.js";
@@ -372,6 +373,11 @@ export async function init() {
   bindZoomSyncToggle();
   document.addEventListener("inspect-anomaly-event", inspectAnomalyEvent);
   bindControlEvents({ onRefresh: refreshDashboard });
+
+  // Best-effort: surface the signed-in user (Azure Easy Auth). Never blocks the dashboard.
+  apiGet("/api/me")
+    .then((me) => renderUserBadge(me))
+    .catch(() => {});
 
   try {
     setStatus("Loading datasets");
