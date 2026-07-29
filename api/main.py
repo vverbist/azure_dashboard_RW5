@@ -4,50 +4,89 @@ import os
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from api.routes import anomalies, auth, bridges, datasets, downloads, monthly, quality, scada, summary, timeseries
+from api.routes import (
+    anomalies,
+    auth,
+    bridges,
+    dashboard,
+    datasets,
+    downloads,
+    monthly,
+    quality,
+    scada,
+    summary,
+    timeseries,
+)
 from app_core.auth import current_user
 
-app = FastAPI(title="RW5 Revenue Dashboard API", version="1.0.0")
+app = FastAPI(title="RW5 Revenue Dashboard API", version="2.0.0")
 
-# Optional defense-in-depth behind Azure App Service Authentication (Easy Auth). The
-# platform gate is the real access control; enabling REQUIRE_AUTH additionally rejects any
-# /api request that arrives without an Easy Auth identity. Off by default so local dev and
-# a not-yet-gated deployment keep working.
-REQUIRE_AUTH = os.getenv("REQUIRE_AUTH", "").strip().lower() in {"1", "true", "yes", "on"}
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
-    allow_methods=["GET"],
-    allow_headers=["*"],
+def _boolean_setting(name: str, default: bool) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+# Easy Auth remains the platform access gate. On Azure, application-level verification is
+# secure by default; local development stays open unless REQUIRE_AUTH is explicitly set.
+REQUIRE_AUTH = _boolean_setting(
+    "REQUIRE_AUTH",
+    default=bool(os.getenv("WEBSITE_SITE_NAME")),
 )
 
 @app.middleware("http")
-async def no_cache_static(request, call_next):
-    response = await call_next(request)
-    # No-cache the versioned static assets and the HTML shell (served at "/" and via the
-    # SPA catch-all). Without this the browser can hold a stale index.html after a deploy
-    # and keep loading old ?v= assets until its cache expires.
+async def secure_requests(request, call_next):
+    if REQUIRE_AUTH and request.url.path.startswith("/api/") and current_user(request.headers) is None:
+        response = JSONResponse({"detail": "Authentication required."}, status_code=401)
+    else:
+        response = await call_next(request)
+
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "script-src 'self'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data:; "
+        "font-src 'self'; "
+        "connect-src 'self'; "
+        "object-src 'none'; "
+        "base-uri 'self'; "
+        "frame-ancestors 'none'; "
+        "form-action 'self'"
+    )
+    response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
+    response.headers["Permissions-Policy"] = (
+        "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+    )
+    response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["Strict-Transport-Security"] = (
+        "max-age=31536000; includeSubDomains"
+    )
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+
     content_type = response.headers.get("content-type", "")
-    if request.url.path.startswith("/static/") or content_type.startswith("text/html"):
+    path = request.url.path
+    if path.startswith("/static/vendor/") or path.startswith("/static/fonts/"):
+        response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+    elif path.startswith("/static/") or content_type.startswith("text/html"):
         response.headers["Cache-Control"] = "no-cache"
+    elif path.startswith("/api/") and "cache-control" not in response.headers:
+        response.headers["Cache-Control"] = "no-store"
     return response
 
 
-@app.middleware("http")
-async def enforce_auth(request, call_next):
-    if REQUIRE_AUTH and request.url.path.startswith("/api/") and current_user(request.headers) is None:
-        return JSONResponse({"detail": "Authentication required."}, status_code=401)
-    return await call_next(request)
+app.add_middleware(GZipMiddleware, minimum_size=1_000, compresslevel=5)
 
 
 app.include_router(auth.router, prefix="/api")
 app.include_router(datasets.router, prefix="/api")
+app.include_router(dashboard.router, prefix="/api")
 app.include_router(summary.router, prefix="/api")
 app.include_router(monthly.router, prefix="/api")
 app.include_router(scada.router, prefix="/api")

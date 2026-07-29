@@ -6,9 +6,7 @@ from fastapi import APIRouter, Depends
 
 from app_core.benchmarks import summarize_greenchoice, summarize_strike_price
 from app_core.calculations import calculate_summary_table, make_variance_table
-from app_core.completeness import frame_completeness
 from app_core.contracts import commercial_basis
-from app_core.storage import cached_dataset_version
 from app_core.dashboard import (
     build_executive_narrative,
     build_headline_kpis,
@@ -19,14 +17,22 @@ from app_core.dashboard import (
 from app_core.formatting import format_summary_table, format_variance_table
 from app_core.serialization import dataframe_records, dataframe_table
 
-from ._common import ApiDashboardQuery, clean_items, dashboard_query, load_prepared_frames
+from ._common import (
+    ApiDashboardQuery,
+    LoadedDashboardFrames,
+    clean_items,
+    dashboard_query,
+    load_dashboard_frames,
+)
 
 router = APIRouter()
 
 
-@router.get("/summary")
-def get_summary(query: ApiDashboardQuery = Depends(dashboard_query)):
-    blob_name, raw, df, full = load_prepared_frames(query)
+def build_summary_payload(
+    query: ApiDashboardQuery,
+    loaded: LoadedDashboardFrames,
+) -> dict:
+    raw, df, full = loaded.raw, loaded.selected, loaded.full
     summary = calculate_summary_table(df)
     variance = make_variance_table(df)
     greenchoice_summary = summarize_greenchoice(df)
@@ -40,8 +46,7 @@ def get_summary(query: ApiDashboardQuery = Depends(dashboard_query)):
     )
 
     return {
-        "dataset": blob_name,
-        "dataset_version": cached_dataset_version(blob_name),
+        **loaded.metadata,
         "commercial_basis": basis,
         "context": {
             "period": format_period_label(df, query.settings.timestamp_col),
@@ -49,7 +54,11 @@ def get_summary(query: ApiDashboardQuery = Depends(dashboard_query)):
             "source_rows": len(raw),
             "granularity": query.settings.resampling_rule,
             "data_available_through": latest_data_date(full, query.settings.timestamp_col),
-            "completeness": frame_completeness(df, query.settings.timestamp_col),
+            "completeness": loaded.snapshot.completeness(
+                query.settings.timestamp_col,
+                query.settings.start_date,
+                query.settings.end_date,
+            ),
         },
         "headline_kpis": clean_items(build_headline_kpis(df, summary)),
         "executive_narrative": build_executive_narrative(df, summary, variance),
@@ -65,3 +74,8 @@ def get_summary(query: ApiDashboardQuery = Depends(dashboard_query)):
         "strike_summary": dataframe_records(strike_summary),
         "assumptions": dataframe_records(selected_assumptions_table(query.settings)),
     }
+
+
+@router.get("/summary")
+def get_summary(query: ApiDashboardQuery = Depends(dashboard_query)):
+    return build_summary_payload(query, load_dashboard_frames(query))

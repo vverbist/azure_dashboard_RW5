@@ -37,10 +37,7 @@ import {
 } from "./renderers/scada.js";
 import { showChartEmpty } from "./charts/layout.js";
 import { renderLineChart } from "./charts/lineChart.js";
-import {
-  renderAllTimeseries,
-  TIMESERIES_GROUPS,
-} from "./charts/timeseriesRouter.js";
+import { renderAllTimeseries } from "./charts/timeseriesRouter.js";
 import { renderWaterfall } from "./charts/waterfallChart.js";
 
 let initialized = false;
@@ -76,42 +73,9 @@ function isCurrentRefresh(token) {
   return token === refreshToken;
 }
 
-async function settleRecord(record) {
-  const entries = Object.entries(record);
-  const settled = await Promise.allSettled(
-    entries.map(([, promise]) => promise),
-  );
-
-  return Object.fromEntries(
-    entries.map(([key], index) => [key, settled[index]]),
-  );
-}
-
 async function loadDashboardData(signal) {
-  const coreRequests = {
-    summary: apiGet("/api/summary", {}, { signal }),
-    monthly: apiGet("/api/monthly", {}, { signal }),
-    revenueBridge: apiGet("/api/revenue-bridge", {}, { signal }),
-    strike: apiGet("/api/strike-exposure", {}, { signal }),
-    anomalies: apiGet("/api/anomalies", {}, { signal }),
-    quality: apiGet("/api/data-quality", {}, { signal }),
-    scada: apiGet("/api/scada", {}, { signal }),
-  };
-  const timeseriesRequests = TIMESERIES_GROUPS.map((group) =>
-    apiGet("/api/timeseries", { chart_group: group }, { signal }),
-  );
-  const [core, timeseriesSettled] = await Promise.all([
-    settleRecord(coreRequests),
-    Promise.allSettled(timeseriesRequests),
-  ]);
-
-  return {
-    ...core,
-    timeseries: timeseriesSettled.map((result, index) => ({
-      group: TIMESERIES_GROUPS[index],
-      ...result,
-    })),
-  };
+  const payload = await apiGet("/api/dashboard", {}, { signal });
+  return payload.sections;
 }
 
 function resultValue(result) {
@@ -119,7 +83,8 @@ function resultValue(result) {
 }
 
 function resultMessage(prefix, result) {
-  const reason = result?.reason?.message || result?.reason || "";
+  const reason =
+    result?.reason?.message || result?.reason || result?.error || "";
   return reason ? `${prefix}: ${reason}` : prefix;
 }
 
@@ -383,16 +348,7 @@ export async function init() {
     setStatus("Loading datasets");
     const datasetPayload = await loadDatasets();
     populateDatasetOptions(datasetPayload);
-
-    try {
-      // Establish the real date bounds before the first full refresh so the
-      // "Last full month" default doesn't trigger a second full data load.
-      const monthly = await apiGet("/api/monthly", {});
-      updateQuickPeriodMonths(monthly);
-    } catch (_) {
-      // Ignore; refreshDashboard() below will surface a monthly-specific
-      // error and fall back to unfiltered bounds.
-    }
+    updateQuickPeriodMonths(datasetPayload.default_context);
 
     await refreshDashboard();
   } catch (error) {

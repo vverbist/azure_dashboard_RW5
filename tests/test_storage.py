@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
 
 import pandas as pd
@@ -80,7 +81,7 @@ class _CountingContainer:
 
 
 def test_read_blob_csv_caches_by_etag(monkeypatch):
-    storage._CSV_CACHE.clear()
+    storage.clear_storage_caches()
     container = _CountingContainer(b"timestamp,value\n2026-01-01,1.5\n", '"etag-1"')
     monkeypatch.setattr(storage, "get_container_client", lambda **kwargs: container)
 
@@ -94,3 +95,73 @@ def test_read_blob_csv_caches_by_etag(monkeypatch):
     container.etag = '"etag-2"'  # a new version invalidates the cache
     storage.read_blob_csv("exports/x.csv")
     assert container.downloads == 2
+
+
+def test_snapshot_cold_load_is_single_flight(monkeypatch):
+    storage.clear_storage_caches()
+    container = _CountingContainer(
+        b"timestamp_Ams,value\n2026-01-01 00:00,1.5\n",
+        '"etag-single"',
+    )
+    monkeypatch.setattr(storage, "get_container_client", lambda **kwargs: container)
+
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        snapshots = list(
+            executor.map(
+                lambda _index: storage.read_dataset_snapshot("exports/x.csv")[0],
+                range(4),
+            )
+        )
+
+    assert container.downloads == 1
+    assert all(snapshot is snapshots[0] for snapshot in snapshots)
+
+
+def test_failed_new_version_preserves_previous_snapshot(monkeypatch):
+    storage.clear_storage_caches()
+    container = _CountingContainer(
+        b"timestamp,value\n2026-01-01,1.5\n",
+        '"etag-1"',
+    )
+    monkeypatch.setattr(storage, "get_container_client", lambda **kwargs: container)
+    first, _cache_hit = storage.read_dataset_snapshot("exports/x.csv")
+
+    container.etag = '"etag-2"'
+
+    def fail_download(_blob_name):
+        raise RuntimeError("temporary Azure failure")
+
+    monkeypatch.setattr(container, "download_blob", fail_download)
+
+    try:
+        storage.read_dataset_snapshot("exports/x.csv")
+    except RuntimeError:
+        pass
+    else:
+        raise AssertionError("Expected the replacement download to fail.")
+
+    assert storage.cached_dataset_version("exports/x.csv") == first.etag
+
+
+def test_snapshot_reuses_parsed_base_frame(monkeypatch):
+    storage.clear_storage_caches()
+    container = _CountingContainer(
+        (
+            b"timestamp_Ams,delivered_volume_mwh,nominated_volume_mwh\n"
+            b"2026-01-01 00:00,1.5,1.0\n"
+        ),
+        '"etag-base"',
+    )
+    monkeypatch.setattr(storage, "get_container_client", lambda **kwargs: container)
+    snapshot, _cache_hit = storage.read_dataset_snapshot("exports/x.csv")
+
+    first = snapshot.base_frame("timestamp_Ams")
+    second = snapshot.base_frame("timestamp_Ams")
+
+    assert first is second
+    assert pd.api.types.is_datetime64_any_dtype(first["timestamp_Ams"])
+    assert "imbalance_volume_mwh_calc" in first.columns
+
+    first_completeness = snapshot.completeness("timestamp_Ams")
+    second_completeness = snapshot.completeness("timestamp_Ams")
+    assert first_completeness is second_completeness

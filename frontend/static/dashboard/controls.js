@@ -1,4 +1,5 @@
 import { CONTROL_IDS, getElement } from "./dom.js";
+import { resizeChartsIn } from "./charts/layout.js";
 import { escapeHtml, asDateInput, timestampLabel } from "./formatters.js";
 import {
   getState,
@@ -107,9 +108,9 @@ export function applyQuickPeriod() {
 }
 
 export function updateQuickPeriodMonths(monthly) {
-  const rows = monthly?.chart_data?.rows || [];
-  const months = rows
-    .map((row) => row.Month)
+  const monthValues =
+    monthly?.months || (monthly?.chart_data?.rows || []).map((row) => row.Month);
+  const months = monthValues
     .filter((month) => /^\d{4}-\d{2}$/.test(month))
     .map((month) => {
       const [year, monthNumber] = month.split("-").map(Number);
@@ -126,7 +127,12 @@ export function updateQuickPeriodMonths(monthly) {
 
   const patch = { monthPeriods: months };
 
-  if (months.length) {
+  if (monthly?.start_date && monthly?.end_date) {
+    patch.fullBounds = {
+      start: monthly.start_date,
+      end: monthly.end_date,
+    };
+  } else if (months.length) {
     patch.fullBounds = {
       start: months[0].start,
       end: months[months.length - 1].end,
@@ -229,6 +235,10 @@ export function switchTab(tabId) {
 
   if (button) button.classList.add("active");
   panel.classList.add("active");
+
+  // The panel was display:none until now; resize its charts once layout settles so they
+  // fill the newly-visible width instead of staying at their hidden (near-zero) size.
+  requestAnimationFrame(() => resizeChartsIn(panel));
 }
 
 export function bindControlEvents({ onRefresh }) {

@@ -8,7 +8,12 @@ from app_core.anomalies import anomaly_source_df, build_anomaly_event_tables, bu
 from app_core.metadata import ANOMALY_SPECS
 from app_core.serialization import dataframe_records
 
-from ._common import ApiDashboardQuery, dashboard_query, load_prepared_frames
+from ._common import (
+    ApiDashboardQuery,
+    LoadedDashboardFrames,
+    dashboard_query,
+    load_dashboard_frames,
+)
 
 router = APIRouter()
 
@@ -39,20 +44,40 @@ def build_event_tables(df, time_col: str, row_count: int):
     }
 
 
+def build_anomalies_payload(
+    query: ApiDashboardQuery,
+    loaded: LoadedDashboardFrames,
+    anomaly_type: str = "all",
+) -> dict:
+    if anomaly_type != "all" and anomaly_type not in ANOMALY_SPECS:
+        raise HTTPException(status_code=400, detail=f"Unknown anomaly_type '{anomaly_type}'.")
+    return {
+        **loaded.metadata,
+        "anomaly_type": anomaly_type,
+        "tables": build_tables(
+            loaded.selected,
+            query.settings.timestamp_col,
+            query.row_count,
+            anomaly_type,
+        ),
+        "event_tables": build_event_tables(
+            loaded.selected,
+            query.settings.timestamp_col,
+            query.row_count,
+        ),
+    }
+
+
 @router.get("/anomalies")
 def get_anomalies(
     anomaly_type: str = Query(default="all", description=f"One of: all, {', '.join(ANOMALY_SPECS)}"),
     query: ApiDashboardQuery = Depends(dashboard_query),
 ):
-    if anomaly_type != "all" and anomaly_type not in ANOMALY_SPECS:
-        raise HTTPException(status_code=400, detail=f"Unknown anomaly_type '{anomaly_type}'.")
-    blob_name, _raw, df, _full = load_prepared_frames(query)
-    return {
-        "dataset": blob_name,
-        "anomaly_type": anomaly_type,
-        "tables": build_tables(df, query.settings.timestamp_col, query.row_count, anomaly_type),
-        "event_tables": build_event_tables(df, query.settings.timestamp_col, query.row_count),
-    }
+    return build_anomalies_payload(
+        query,
+        load_dashboard_frames(query),
+        anomaly_type,
+    )
 
 
 @router.get("/anomalies/event-rows")
@@ -61,10 +86,10 @@ def get_anomaly_event_rows(
     end: datetime = Query(..., description="Event window end (exclusive)."),
     query: ApiDashboardQuery = Depends(dashboard_query),
 ):
-    blob_name, _raw, df, _full = load_prepared_frames(query)
-    rows = event_rows_between(df, query.settings.timestamp_col, start, end)
+    loaded = load_dashboard_frames(query)
+    rows = event_rows_between(loaded.selected, query.settings.timestamp_col, start, end)
     return {
-        "dataset": blob_name,
+        **loaded.metadata,
         "start": start.isoformat(),
         "end": end.isoformat(),
         "rows": dataframe_records(rows),

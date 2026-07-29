@@ -16,7 +16,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-test = ["pytest"]
+test = [
+    "httpx2>=2.9.1",
+    "pytest",
+]
 
 [tool.uv]
 package = false

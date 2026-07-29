@@ -4,17 +4,24 @@ from fastapi import APIRouter, Depends
 
 from app_core.scada import make_scada_envelope_payload, scada_data_available_through
 
-from ._common import ApiDashboardQuery, dashboard_query, load_prepared_frames
+from ._common import (
+    ApiDashboardQuery,
+    LoadedDashboardFrames,
+    dashboard_query,
+    load_dashboard_frames,
+)
 
 
 router = APIRouter()
 
 
-@router.get("/scada")
-def get_scada(query: ApiDashboardQuery = Depends(dashboard_query)):
-    blob_name, _raw, selected, full = load_prepared_frames(query)
+def build_scada_payload(
+    query: ApiDashboardQuery,
+    loaded: LoadedDashboardFrames,
+) -> dict:
+    selected, full = loaded.selected, loaded.full
     return {
-        "dataset": blob_name,
+        **loaded.metadata,
         "data_available_through": scada_data_available_through(
             full, query.settings.timestamp_col
         ),
@@ -24,3 +31,8 @@ def get_scada(query: ApiDashboardQuery = Depends(dashboard_query)):
             query.settings.resampling_rule,
         ),
     }
+
+
+@router.get("/scada")
+def get_scada(query: ApiDashboardQuery = Depends(dashboard_query)):
+    return build_scada_payload(query, load_dashboard_frames(query))

@@ -31,6 +31,8 @@ export function showChartEmpty(targetOrId, message) {
   target.innerHTML = `<div class="empty-state">${escapeHtml(message)}</div>`;
 }
 
+let plotConfigured = false;
+
 export function getPlotly(targetOrId) {
   const target =
     typeof targetOrId === "string" ? getElement(targetOrId) : targetOrId;
@@ -40,5 +42,20 @@ export function getPlotly(targetOrId) {
     return null;
   }
 
+  // Centralized default config for every chart: resize with the window, no vendor logo.
+  if (!plotConfigured) {
+    window.Plotly.setPlotConfig({ responsive: true, displaylogo: false });
+    plotConfigured = true;
+  }
+
   return window.Plotly;
+}
+
+// Resize every Plotly chart inside a container (call after a hidden tab becomes visible;
+// Plotly cannot size a display:none element, so charts drawn while hidden need this).
+export function resizeChartsIn(container) {
+  if (!window.Plotly?.Plots?.resize || !container) return;
+  container
+    .querySelectorAll(".js-plotly-plot")
+    .forEach((element) => window.Plotly.Plots.resize(element));
 }

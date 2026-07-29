@@ -47,10 +47,13 @@ class DashboardSettings:
         return normalize_percentage(self.greenchoice_afslag_pct)
 
 
-def _with_diagnostics(df: pd.DataFrame, settings: DashboardSettings) -> pd.DataFrame:
-    out = add_diagnostic_columns(df)
+def _with_scenario_diagnostics(
+    base_df: pd.DataFrame,
+    settings: DashboardSettings,
+) -> pd.DataFrame:
+    """Add only calculations that vary with the user's commercial assumptions."""
     out = add_greenchoice_benchmark(
-        out,
+        base_df,
         settings.greenchoice_volume_col,
         settings.epex_price_col,
         settings.normalized_afslag_pct,
@@ -66,11 +69,20 @@ def _with_diagnostics(df: pd.DataFrame, settings: DashboardSettings) -> pd.DataF
     return out
 
 
-def prepare_dashboard_frames(raw_df: pd.DataFrame, settings: DashboardSettings) -> tuple[pd.DataFrame, pd.DataFrame]:
-    parsed = parse_time_column(raw_df, settings.timestamp_col)
-    # Diagnostics are row-wise, so compute them once on the full frame and slice the
-    # selected period out of the result rather than diagnosing both frames separately.
-    full = _with_diagnostics(parsed, settings)
+def prepare_dashboard_frames(
+    raw_df: pd.DataFrame,
+    settings: DashboardSettings,
+    *,
+    base_df: pd.DataFrame | None = None,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Prepare selected/full frames, reusing snapshot-level base work when supplied."""
+    if base_df is None:
+        parsed = parse_time_column(raw_df, settings.timestamp_col)
+        base_df = add_diagnostic_columns(parsed)
+
+    # Scenario diagnostics are row-wise, so compute them once on the full frame and slice
+    # the selected period out of the result.
+    full = _with_scenario_diagnostics(base_df, settings)
     selected = filter_by_date_range(full, settings.timestamp_col, settings.start_date, settings.end_date)
 
     return selected, full

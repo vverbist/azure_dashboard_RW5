@@ -213,7 +213,39 @@ def test_timeseries_chart_data():
     assert payload["group"] == "Volumes"
     names = [series["name"] for series in payload["series"]]
     assert "delivered_volume_mwh" in names
-    assert len(payload["rows"]) == len(df)
+    assert payload["returned_rows"] == len(df)
+    assert "rows" not in payload  # series are sufficient for the frontend
+
+
+def test_timeseries_chart_data_enforces_deterministic_point_budget():
+    timestamps = pd.date_range("2026-01-01", periods=10_000, freq="15min")
+    df = pd.DataFrame(
+        {
+            "timestamp_Ams": timestamps,
+            "delivered_volume_mwh": np.ones(len(timestamps)),
+            "nominated_volume_mwh": np.ones(len(timestamps)),
+        }
+    )
+
+    first = timeseries_chart_data(
+        df,
+        "timestamp_Ams",
+        "Volumes",
+        "Original",
+        point_budget=100,
+    )
+    second = timeseries_chart_data(
+        df,
+        "timestamp_Ams",
+        "Volumes",
+        "Original",
+        point_budget=100,
+    )
+
+    assert first["returned_rows"] <= 100
+    assert first["downsampled"] is True
+    assert first["applied_resolution"] != "Original"
+    assert first["series"] == second["series"]
 
 
 def test_data_quality_gap_detection():
