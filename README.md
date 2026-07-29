@@ -124,8 +124,12 @@ Refactored calculation areas:
 Run unit tests:
 
 ```bash
-pytest
+uv sync --extra test
+uv run pytest
 ```
+
+GitHub Actions installs the lock-derived `requirements-test.txt`; Azure/Oryx
+continues to use the production-only `requirements.txt`.
 
 Run a representative CSV validation without the API:
 
