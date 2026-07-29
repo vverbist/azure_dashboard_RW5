@@ -1,8 +1,8 @@
 # RW5 Revenue Dashboard Improvement Roadmap
 
-Last updated: 2026-07-23
+Last updated: 2026-07-29
 
-Status: Draft implementation roadmap. Items remain in scope unless they are
+Status: Active implementation roadmap. Items remain in scope unless they are
 explicitly rejected or replaced in the decision log.
 
 ## Purpose
@@ -32,7 +32,7 @@ is in place.
 |---|---|---:|---|
 | 0 | Trustworthy calculations and explicit completeness | P0 ✅ | None |
 | 1 | Safe, recoverable data publication | P0 | Phase 0 completeness rules |
-| 2 | Faster and secured application delivery | P1 | Stable data contract |
+| 2 | Faster and secured application delivery | P1 ✅ | Stable data contract |
 | 3 | Responsive, clearer dashboard workflow | P1 | Phases 0 and 2 |
 | 4 | Stronger commercial and operational decision support | P2 | Trusted metrics |
 | 5 | Maintainable packages and development standards | P2 | Can progress incrementally |
@@ -152,6 +152,11 @@ Acceptance criteria:
 
 ## Phase 1 — Pipeline integrity and publication safety
 
+> **Status (2026-07-29): NEXT.** Phase 0 established the calculation and
+> completeness contract. The next implementation slice focuses on detecting
+> missing partitions and preventing incomplete datasets from replacing the
+> last valid publication.
+
 ### 1.1 Detect all missing daily partitions
 
 - [ ] Scan the expected calendar range for missing daily files instead of only
@@ -201,24 +206,31 @@ Acceptance criteria:
 
 ## Phase 2 — Backend performance and security
 
+> **Status (2026-07-29): COMPLETE.** The dashboard now uses bounded,
+> ETag-versioned in-process snapshots and a single bundled refresh endpoint.
+> Azure deployments require Easy Auth identities by default, all signed-in
+> users share the same dashboard/download permissions, both authorized dataset
+> prefixes remain available, and browser/API resources are same-origin and
+> hardened. Defaults are tuned for the B1 Linux plan and low concurrency.
+
 ### 2.1 Cached data snapshots
 
-- [ ] Introduce a `DataSnapshot` or repository service keyed by blob name and
+- [x] Introduce a `DataSnapshot` or repository service keyed by blob name and
       blob ETag/version.
-- [ ] Download and parse a dataset once per version rather than once per route.
-- [ ] Reuse parsed timestamps, base diagnostics, and completeness metadata.
-- [ ] Define cache size, invalidation, startup, and failure behavior.
-- [ ] Expose cache/dataset version in API responses for traceability.
+- [x] Download and parse a dataset once per version rather than once per route.
+- [x] Reuse parsed timestamps, base diagnostics, and completeness metadata.
+- [x] Define cache size, invalidation, startup, and failure behavior.
+- [x] Expose cache/dataset version in API responses for traceability.
 
 ### 2.2 Reduce request and payload volume
 
-- [ ] Replace the initial fan-out with one dashboard bootstrap endpoint or a
+- [x] Replace the initial fan-out with one dashboard bootstrap endpoint or a
       small number of purpose-specific bundles.
-- [ ] Remove the extra pre-refresh monthly request.
-- [ ] Add a server-side point budget and deterministic downsampling for charts.
-- [ ] Default long periods to an appropriate chart resolution.
-- [ ] Avoid sending full row tables when the frontend only needs series.
-- [ ] Add compression and cache validators where supported.
+- [x] Remove the extra pre-refresh monthly request.
+- [x] Add a server-side point budget and deterministic downsampling for charts.
+- [x] Default long periods to an appropriate chart resolution.
+- [x] Avoid sending full row tables when the frontend only needs series.
+- [x] Add compression and cache validators where supported.
 
 Target:
 
@@ -228,21 +240,23 @@ Target:
 
 ### 2.3 Authentication and authorization
 
-- [ ] Confirm whether Azure Easy Auth/Entra ID is enforced outside the
+- [x] Confirm whether Azure Easy Auth/Entra ID is enforced outside the
       application.
-- [ ] If not, add Entra ID authentication before broader use.
-- [ ] Define viewer, analyst/download, and operator permissions if different
+- [x] If not, add Entra ID authentication before broader use. (Not required:
+      Easy Auth is enabled; the application now verifies its identity headers
+      by default when running on Azure.)
+- [x] Define viewer, analyst/download, and operator permissions if different
       access levels are needed.
-- [ ] Protect CSV downloads with the same authorization as dashboard data.
+- [x] Protect CSV downloads with the same authorization as dashboard data.
 
 ### 2.4 API and browser hardening
 
-- [ ] Restrict CORS to approved origins or remove it for same-origin deployment.
-- [ ] Validate `dataset` against the authorized dataset catalog.
-- [ ] Add rate/resource limits for expensive endpoints.
-- [ ] Add security headers and a content security policy.
-- [ ] Self-host the pinned Plotly bundle and required fonts/assets.
-- [ ] Avoid returning raw upstream exception details to end users.
+- [x] Restrict CORS to approved origins or remove it for same-origin deployment.
+- [x] Validate `dataset` against the authorized dataset catalog.
+- [x] Add rate/resource limits for expensive endpoints.
+- [x] Add security headers and a content security policy.
+- [x] Self-host the pinned Plotly bundle and required fonts/assets.
+- [x] Avoid returning raw upstream exception details to end users.
 
 ## Phase 3 — Dashboard usability and responsive behavior
 
@@ -462,27 +476,33 @@ Acceptance criteria:
 
 | ID | Decision | Current state |
 |---|---|---|
-| D1 | Is Azure Easy Auth already mandatory in production? | Confirm before Phase 2 security work |
-| D2 | Are Greenchoice and strike results official contract reporting, scenarios, or both? | Required for Phase 0.5 |
+| D1 | Is Azure Easy Auth already mandatory in production? | Yes; confirmed by owner on 2026-07-29, with application-level verification enabled automatically on Azure |
+| D2 | Are Greenchoice and strike results official contract reporting, scenarios, or both? | Both: official terms are effective-dated and user scenarios remain separate; commercial-owner validation of the provisional official terms is still pending |
 | D3 | What is the authoritative budget/target source? | Required for Phase 4.3 |
 | D4 | Which users need dataset selection and raw diagnostic tables? | Required for Phase 3 simplification |
 | D5 | Should anomaly acknowledgement live here or in another workflow system? | Required for Phase 4.4 |
-| D6 | What completeness threshold blocks publication versus only warns? | Required for Phases 0 and 1 |
+| D6 | What completeness threshold blocks publication versus only warns? | Dashboard totals use a warn-only model; Phase 1 publication validation must block incomplete monthly and YTD replacements |
 | D7 | Which source and metric freshness SLAs apply? | Required for source-health statuses and alerts |
 
-## Recommended first implementation slice
+## Recommended next implementation slice
 
-Start with a small vertical slice that proves the trust model:
+Implement a small Phase 1 vertical slice that makes publication recoverable:
 
-1. Implement null-safe aggregates and date/input validation.
-2. Fix percentage semantics.
-3. Add source completeness metadata for summary and monthly payloads.
-4. Mark incomplete and partial periods in the monthly UI.
-5. Add calculation, API, and browser tests for those behaviors.
-6. Repair the standalone real-data validator and run it in CI.
+1. Scan the full expected Amsterdam calendar range for missing daily
+   partitions, including DST-aware interval counts.
+2. Build daily, monthly, and YTD artifacts in staging paths.
+3. Validate dates, interval counts, duplicate timestamps, required columns,
+   source completeness, and revenue identities before promotion.
+4. Promote only validated artifacts and preserve the previous valid export
+   after any failed or incomplete run.
+5. Publish a dataset manifest with version, run time, coverage, row count,
+   schema version, and quality result.
+6. Add tests proving that a missing historical day is detected and a simulated
+   source failure cannot replace a valid export.
 
-Do not start caching or redesigning the frontend until this slice defines the
-stable data and completeness contract they will consume.
+Phase 2 caching and security work has already been completed independently.
+After this slice, harden source adapters and add operational run summaries and
+alerts before moving to Phase 3.
 
 ## Definition of done for the roadmap
 

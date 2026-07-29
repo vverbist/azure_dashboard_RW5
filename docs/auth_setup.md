@@ -53,14 +53,15 @@ Single-tenant already limits to your whole organisation. To narrow further:
 
 No code change is needed for either scope.
 
-## Optional: defense-in-depth (`REQUIRE_AUTH`)
+## Application-level defense in depth (`REQUIRE_AUTH`)
 
-The platform gate is the real control. The app also supports an opt-in belt-and-suspenders
-check: set the App Service application setting **`REQUIRE_AUTH=true`** to make any `/api`
-request without an Easy Auth identity return `401`.
+The platform gate is the real control. The app also rejects any `/api` request without an
+Easy Auth identity when it detects that it is running on Azure App Service
+(`WEBSITE_SITE_NAME` is present). This includes dataset listing and every CSV download.
 
-- Only enable this **after** Easy Auth is confirmed working — otherwise every `/api` call
-  returns 401 (there is no identity header without the gate). It is **off by default**.
+- Local development remains open because `WEBSITE_SITE_NAME` is absent.
+- `REQUIRE_AUTH=true` can force the check in another hosted environment.
+- `REQUIRE_AUTH=false` can explicitly override it, but should not be used in production.
 
 ## Security note
 

@@ -88,6 +88,7 @@ The frontend is a buildless static app in `frontend/`. FastAPI serves `frontend/
 ## FastAPI Endpoints
 
 - `GET /api/datasets`
+- `GET /api/dashboard` (bundled payload used by the frontend)
 - `GET /api/summary`
 - `GET /api/monthly`
 - `GET /api/revenue-bridge`
@@ -135,5 +136,22 @@ python scripts/validate_shared_calculations.py data/exports/2026_ytd.csv
 ## Known Limitations
 
 - The frontend is a buildless static frontend, not SvelteKit. This avoids adding a Node build chain and keeps Azure hosting to one FastAPI startup command.
-- Plotly in the frontend is loaded from the Plotly CDN.
-- The FastAPI app reads Azure Blob data per request; server-side caching can be added later if response time becomes an issue.
+- Dataset snapshots are process-local. Running multiple Uvicorn workers gives each worker
+  its own bounded cache.
+
+## Phase 2 runtime controls
+
+The defaults target the current B1 Linux App Service and low concurrency:
+
+- `DATASET_CACHE_MAX_SNAPSHOTS=4`
+- `DATASET_CACHE_MAX_BYTES=268435456` (256 MiB)
+- `DATASET_CATALOG_TTL_SECONDS=60`
+- `DASHBOARD_CHART_POINT_BUDGET=2000`
+- `DASHBOARD_MAX_DATE_RANGE_DAYS=730`
+- `DASHBOARD_MAX_CONCURRENT_COMPUTATIONS=2`
+
+Snapshots are loaded lazily and replaced only after a new ETag version downloads and
+parses successfully. A failed replacement remains visible as an error and does not evict
+the previous valid cached snapshot. Plotly's strict 2.35.2 bundle and Montserrat are
+pinned and served locally so the browser can use a same-origin Content Security Policy
+without permitting dynamic JavaScript evaluation.
