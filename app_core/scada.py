@@ -16,6 +16,10 @@ SCADA_POWER_COLUMNS = {
     "actual_output": "scada_actual_power_kw",
 }
 
+SCADA_OPTIONAL_POWER_COLUMNS = {
+    "supplier_setpoint": "scada_ems_setpoint_kw",
+}
+
 SCADA_ANALYSIS_COLUMNS = [
     *SCADA_POWER_COLUMNS.values(),
     "scada_wind_speed_mps",
@@ -302,16 +306,25 @@ def make_scada_envelope_payload(
         }
 
     valid = valid_scada_mask(period_df)
-    power_columns = list(SCADA_POWER_COLUMNS.values())
+    chart_columns = {
+        **SCADA_POWER_COLUMNS,
+        **{
+            key: column
+            for key, column in SCADA_OPTIONAL_POWER_COLUMNS.items()
+            if column in period_df.columns
+        },
+    }
+    power_columns = list(chart_columns.values())
     plot = _resample_envelope(period_df, time_col, power_columns, valid, rule)
     labels = {
         "wind_potential": "Wind potential (AAP)",
         "technically_available": "Technically available",
+        "supplier_setpoint": "Supplier power setpoint",
         "effective_cap": "Effective cap",
         "actual_output": "Actual output (SCADA)",
     }
     series = []
-    for key, column in SCADA_POWER_COLUMNS.items():
+    for key, column in chart_columns.items():
         series.append(
             {
                 "key": key,

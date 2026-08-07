@@ -285,6 +285,12 @@ export function renderScadaEnvelope(payload) {
       color: CHART_COLORS.blueGreen,
       dash: "solid",
     },
+    supplier_setpoint: {
+      color: CHART_COLORS.orange,
+      dash: "solid",
+      width: 1.5,
+      opacity: 0.67,
+    },
     wind_potential: {
       color: CHART_COLORS.blue,
       dash: "solid",
@@ -296,6 +302,13 @@ export function renderScadaEnvelope(payload) {
     envelopeSeries(payload, "effective_cap"),
     envelopeSeries(payload, "actual_output"),
   ];
+  const displaySeries = [
+    orderedSeries[0],
+    orderedSeries[1],
+    envelopeSeries(payload, "supplier_setpoint"),
+    orderedSeries[2],
+    orderedSeries[3],
+  ].filter(Boolean);
   const traces = [
     lossBandTrace(orderedSeries[0], orderedSeries[1], CHART_COLORS.blueFill),
     lossBandTrace(
@@ -309,7 +322,7 @@ export function renderScadaEnvelope(payload) {
       CHART_COLORS.greenLightFill,
     ),
   ].filter(Boolean);
-  traces.push(...orderedSeries.map((series) => {
+  traces.push(...displaySeries.map((series) => {
     const key = series.key;
     const style = styles[key];
     return {
@@ -319,7 +332,12 @@ export function renderScadaEnvelope(payload) {
       x: series.x,
       y: series.y,
       connectgaps: false,
-      line: { color: style.color, dash: style.dash, width: key === "actual_output" ? 2.7 : 2 },
+      opacity: style.opacity ?? 1,
+      line: {
+        color: style.color,
+        dash: style.dash,
+        width: style.width ?? (key === "actual_output" ? 2.7 : 2),
+      },
       hovertemplate: `${series.label}: %{y:,.3f} MW<extra></extra>`,
     };
   }));

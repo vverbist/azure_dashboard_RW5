@@ -27,6 +27,7 @@ def scada_dashboard_frame() -> pd.DataFrame:
             ),
             "scada_wind_potential_power_kw": [4000.0, 4000.0, 1000.0, 2000.0],
             "scada_technically_available_power_kw": [3200.0, 3600.0, 900.0, 1800.0],
+            "scada_ems_setpoint_kw": [2800.0, 5000.0, 800.0, None],
             "scada_effective_power_cap_kw": [2800.0, 3200.0, 800.0, 1600.0],
             "scada_actual_power_kw": [2400.0, 3400.0, -1.0, 1400.0],
             "scada_wind_speed_mps": [8.0, 10.0, 7.0, 6.0],
@@ -160,6 +161,8 @@ def test_scada_envelope_hides_frozen_values_and_reports_range():
         scada_dashboard_frame()
     ).to_dict(orient="records")
     assert series["actual_output"]["y"] == [2.4, 3.4, None, 1.4]
+    assert series["supplier_setpoint"]["label"] == "Supplier power setpoint"
+    assert series["supplier_setpoint"]["y"] == [2.8, 5.0, None, None]
     assert payload["invalid_ranges"] == [
         {"start": "2026-01-01T00:30:00", "end": "2026-01-01T00:45:00"}
     ]
@@ -172,4 +175,16 @@ def test_scada_envelope_resamples_power_as_mean_and_coverage_as_share():
 
     series = {item["key"]: item for item in payload["series"]}
     assert series["wind_potential"]["y"] == [4.0]
+    assert series["supplier_setpoint"]["y"] == [3.9]
     assert payload["point_coverage_pct"] == pytest.approx([200 / 3])
+
+
+def test_scada_envelope_remains_available_without_optional_supplier_setpoint():
+    frame = scada_dashboard_frame().drop(columns="scada_ems_setpoint_kw")
+
+    payload = make_scada_envelope_payload(frame, "timestamp_Ams", "Original")
+
+    assert payload["available"] is True
+    assert "supplier_setpoint" not in {
+        item["key"] for item in payload["series"]
+    }
