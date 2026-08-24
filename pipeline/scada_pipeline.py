@@ -23,6 +23,11 @@ from config import (
     INFLUX_TOKEN,
     INFLUX_URL,
 )
+from azure_sync import (
+    azure_pipeline_lease,
+    sync_market_daily_cache,
+    upload_market_daily_file,
+)
 from pipeline_lib import (
     INFLUX_TIMEOUT,
     INTERVAL_HOURS,
@@ -538,8 +543,8 @@ def scada_quality_summary(processed: pd.DataFrame) -> dict[str, object]:
 
 
 @contextmanager
-def pipeline_update_lock():
-    """Prevent the manual SCADA and scheduled market writers from overlapping."""
+def pipeline_update_lock(*, logger=None):
+    """Prevent pipeline writers from overlapping locally or across machines."""
     LOCK_FILE.parent.mkdir(parents=True, exist_ok=True)
     try:
         descriptor = os.open(LOCK_FILE, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
@@ -551,7 +556,8 @@ def pipeline_update_lock():
     try:
         with os.fdopen(descriptor, "w", encoding="utf-8") as lock:
             lock.write(str(os.getpid()))
-        yield
+        with azure_pipeline_lease(logger=logger):
+            yield
     finally:
         LOCK_FILE.unlink(missing_ok=True)
 
@@ -581,7 +587,19 @@ def update_scada_period(
         logger.info("Dry run completed; no network queries or file changes were made")
         return set()
 
-    with pipeline_update_lock():
+    with pipeline_update_lock(logger=logger):
+        if upload:
+            remote_days = sync_market_daily_cache(
+                years={day.year for day in days},
+                logger=logger,
+            )
+            if not remote_days:
+                raise RuntimeError(
+                    "Azure has no canonical market daily partitions for the "
+                    "selected year. Seed them first with "
+                    "pipeline/publish_daily_cache.py"
+                )
+
         if not refresh and upload:
             for day in days:
                 local_file = raw_scada_file(day)
@@ -653,6 +671,9 @@ def update_scada_period(
                     "SCADA remain cached for a later run"
                 )
                 continue
+
+            if upload:
+                upload_market_daily_file(enriched_file, day)
 
             touched_days.add(day)
             logger.info(f"Enriched market daily file: {enriched_file}")

@@ -23,6 +23,7 @@ from influxdb_client import InfluxDBClient
 from influxdb_client.client.warnings import MissingPivotFunction
 
 from azure.storage.blob import BlobServiceClient, ContentSettings
+from azure_sync import assert_pipeline_lease_healthy
 
 from config import (
     DAILY_DIR,
@@ -774,6 +775,7 @@ def backfill_days(start_day: date, end_day: date, overwrite: bool = False) -> li
 
 
 def upload_file_to_blob(local_file: Path, blob_name: str):
+    assert_pipeline_lease_healthy()
     blob_service_client = BlobServiceClient.from_connection_string(
         AZURE_STORAGE_CONNECTION_STRING
     )

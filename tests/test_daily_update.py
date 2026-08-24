@@ -1,0 +1,117 @@
+from __future__ import annotations
+
+import sys
+from datetime import date
+from pathlib import Path
+
+import pandas as pd
+import pytest
+
+
+PIPELINE_DIR = Path(__file__).resolve().parents[1] / "pipeline"
+if str(PIPELINE_DIR) not in sys.path:
+    sys.path.insert(0, str(PIPELINE_DIR))
+
+import run_daily_update as daily  # noqa: E402
+
+
+class Logger:
+    def info(self, _message):
+        pass
+
+    def error(self, _message):
+        pass
+
+
+def prepare_daily_run(monkeypatch, tmp_path):
+    day = date(2026, 8, 23)
+    calls: list[object] = []
+    local_file = tmp_path / "daily" / "2026" / f"{day}.parquet"
+    local_file.parent.mkdir(parents=True)
+    pd.DataFrame(
+        {
+            "timestamp_Ams": [pd.Timestamp(day)],
+            "delivered_volume_mwh": [1.0],
+        }
+    ).to_parquet(local_file, index=False)
+
+    class FakeDate(date):
+        @classmethod
+        def today(cls):
+            return cls(2026, 8, 24)
+
+    monkeypatch.setattr(daily, "date", FakeDate)
+    monkeypatch.setattr(daily, "logger", Logger())
+    monkeypatch.setattr(
+        daily,
+        "sync_market_daily_cache",
+        lambda **_kwargs: calls.append("sync") or {day},
+    )
+    monkeypatch.setattr(daily, "determine_sync_window", lambda _today: (day, day))
+    monkeypatch.setattr(
+        daily,
+        "backfill_days",
+        lambda *_args, **_kwargs: calls.append("backfill") or [],
+    )
+    monkeypatch.setattr(
+        daily,
+        "repair_nan_timestamps_for_period",
+        lambda *_args, **_kwargs: (set(), []),
+    )
+    monkeypatch.setattr(daily, "market_daily_file", lambda _day: local_file)
+
+    monthly_file = tmp_path / "monthly.csv"
+    ytd_file = tmp_path / "ytd.csv"
+    monthly_file.write_text("monthly", encoding="utf-8")
+    ytd_file.write_text("ytd", encoding="utf-8")
+    monkeypatch.setattr(
+        daily,
+        "rebuild_month",
+        lambda *_args: calls.append("rebuild_month") or monthly_file,
+    )
+    monkeypatch.setattr(
+        daily,
+        "rebuild_ytd",
+        lambda *_args: calls.append("rebuild_ytd") or ytd_file,
+    )
+    monkeypatch.setattr(
+        daily,
+        "upload_file_to_blob",
+        lambda *_args: calls.append("upload_aggregate"),
+    )
+    return day, local_file, calls
+
+
+def test_daily_update_syncs_then_publishes_partitions_before_aggregates(
+    monkeypatch, tmp_path
+):
+    day, _local_file, calls = prepare_daily_run(monkeypatch, tmp_path)
+    monkeypatch.setattr(
+        daily,
+        "upload_market_daily_file",
+        lambda _file, upload_day: calls.append(("upload_daily", upload_day)),
+    )
+
+    daily.run_locked_update()
+
+    assert calls.index("sync") < calls.index("backfill")
+    assert calls.index(("upload_daily", day)) < calls.index("rebuild_month")
+    assert calls.index(("upload_daily", day)) < calls.index("rebuild_ytd")
+
+
+def test_daily_update_leaves_aggregates_unchanged_if_partition_upload_fails(
+    monkeypatch, tmp_path
+):
+    _day, _local_file, calls = prepare_daily_run(monkeypatch, tmp_path)
+
+    def fail_upload(*_args):
+        raise RuntimeError("upload failed")
+
+    monkeypatch.setattr(daily, "upload_market_daily_file", fail_upload)
+
+    with pytest.raises(SystemExit):
+        daily.run_locked_update()
+
+    assert "rebuild_month" not in calls
+    assert "rebuild_ytd" not in calls
+    assert "upload_aggregate" not in calls

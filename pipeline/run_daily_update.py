@@ -16,6 +16,11 @@ from config import (
     MAX_BACKFILL_LOOKBACK_DAYS,
     validate_required_vars,
 )
+from azure_sync import (
+    market_daily_file,
+    sync_market_daily_cache,
+    upload_market_daily_file,
+)
 from pipeline_lib import (
     configure_logging,
     find_last_synced_day,
@@ -46,7 +51,7 @@ def main():
     logger.info("Starting daily market data update")
     validate_required_vars(MARKET_REQUIRED_VARS)
 
-    with pipeline_update_lock():
+    with pipeline_update_lock(logger=logger):
         run_locked_update()
 
 
@@ -54,6 +59,17 @@ def run_locked_update():
     """Run the existing market update while holding the shared writer lock."""
 
     today = date.today()
+    yesterday = today - timedelta(days=1)
+    remote_days = sync_market_daily_cache(
+        years={yesterday.year, yesterday.year - 1},
+        logger=logger,
+    )
+    if not remote_days:
+        raise RuntimeError(
+            "Azure has no canonical market daily partitions. On the machine with "
+            "the complete data/daily cache, first run: uv run python "
+            "pipeline/publish_daily_cache.py"
+        )
     start_day, yesterday = determine_sync_window(today)
 
     if start_day > yesterday:
@@ -73,11 +89,29 @@ def run_locked_update():
         upload_exports=False,
     )
 
+    failed_days = sorted(set(backfill_failed) | set(repair_failed))
     touched_days = set(changed_days)
     d = start_day
     while d <= yesterday:
-        touched_days.add(d)
+        if d not in backfill_failed:
+            touched_days.add(d)
         d += timedelta(days=1)
+
+    publish_failed = False
+    for day in sorted(touched_days):
+        try:
+            upload_market_daily_file(market_daily_file(day), day)
+            logger.info(f"Uploaded canonical market daily partition: {day}")
+        except Exception as exc:
+            logger.error(f"Failed to upload market daily partition {day}: {exc}")
+            publish_failed = True
+
+    if failed_days or publish_failed:
+        logger.error(
+            "Daily partitions were not published completely; aggregate exports "
+            f"were left unchanged. Failed days: {failed_days}"
+        )
+        sys.exit(1)
 
     touched_months = {(d.year, d.month) for d in touched_days}
     touched_years = {d.year for d in touched_days}
@@ -100,9 +134,7 @@ def run_locked_update():
             logger.error(f"Failed to rebuild/upload YTD {year}: {exc}")
             export_failed = True
 
-    failed_days = sorted(set(backfill_failed) | set(repair_failed))
-
-    if failed_days or export_failed:
+    if export_failed:
         logger.error(f"Completed with failures. Failed days: {failed_days}")
         sys.exit(1)
 

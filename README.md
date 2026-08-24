@@ -60,6 +60,13 @@ partitioned and published without querying InfluxDB:
 uv run python pipeline/import_scada_cache.py --source data/scada/scada_h1_2026.parquet --start 2026-01-01 --end 2026-06-30
 ```
 
+## Local Curtailment Delay Analysis
+
+The standalone one-minute SCADA and imbalance-revenue workflow is documented in
+[`docs/curtailment_delay_analysis.md`](docs/curtailment_delay_analysis.md). It
+uses only local files and is not connected to the dashboard or blob-storage
+publishing workflow.
+
 ## Install
 
 ```bash

@@ -14,12 +14,21 @@ import argparse
 import sys
 from datetime import date
 
+from azure_sync import (
+    market_daily_file,
+    sync_market_daily_cache,
+    upload_market_daily_file,
+)
 from config import MARKET_REQUIRED_VARS, validate_required_vars
 from pipeline_lib import (
     configure_logging,
+    rebuild_month,
+    rebuild_ytd,
     report_nan_timestamps_for_period,
     repair_nan_timestamps_for_period,
+    upload_file_to_blob,
 )
+from scada_pipeline import pipeline_update_lock
 
 logger = configure_logging("run_repair")
 
@@ -47,25 +56,64 @@ def main():
     args = parse_args()
     validate_required_vars(MARKET_REQUIRED_VARS)
 
-    report_nan_timestamps_for_period(
-        args.start,
-        args.end,
-        export_csv=args.export_csv,
-    )
+    with pipeline_update_lock(logger=logger):
+        remote_days = sync_market_daily_cache(
+            years=set(range(args.start.year, args.end.year + 1)),
+            logger=logger,
+        )
+        if not remote_days:
+            raise RuntimeError(
+                "Azure has no canonical market daily partitions for the selected "
+                "period. Seed them first with pipeline/publish_daily_cache.py"
+            )
 
-    if args.check_only:
-        return
+        report_nan_timestamps_for_period(
+            args.start,
+            args.end,
+            export_csv=args.export_csv,
+        )
 
-    changed_days, failed_days = repair_nan_timestamps_for_period(
-        args.start,
-        args.end,
-        rebuild_exports=True,
-        upload_exports=not args.no_upload,
-    )
+        if args.check_only:
+            return
 
-    if failed_days:
-        logger.error(f"Completed with failures on: {sorted(failed_days)}")
-        sys.exit(1)
+        changed_days, failed_days = repair_nan_timestamps_for_period(
+            args.start,
+            args.end,
+            rebuild_exports=False,
+            upload_exports=False,
+        )
+
+        publish_failed = False
+        if not args.no_upload:
+            for day in sorted(changed_days):
+                try:
+                    upload_market_daily_file(market_daily_file(day), day)
+                except Exception as exc:
+                    logger.error(f"Failed to publish repaired daily file {day}: {exc}")
+                    publish_failed = True
+
+        if failed_days or publish_failed:
+            logger.error(
+                "Repaired daily partitions were not published completely; "
+                f"aggregate exports were left unchanged. Failed days: "
+                f"{sorted(failed_days)}"
+            )
+            sys.exit(1)
+
+        touched_months = {(day.year, day.month) for day in changed_days}
+        touched_years = {day.year for day in changed_days}
+
+        for year, month in sorted(touched_months):
+            monthly_file = rebuild_month(year, month)
+            if not args.no_upload:
+                upload_file_to_blob(
+                    monthly_file, f"monthly/{year}/{monthly_file.name}"
+                )
+
+        for year in sorted(touched_years):
+            ytd_file = rebuild_ytd(year)
+            if not args.no_upload:
+                upload_file_to_blob(ytd_file, f"exports/{year}_ytd.csv")
 
 
 if __name__ == "__main__":

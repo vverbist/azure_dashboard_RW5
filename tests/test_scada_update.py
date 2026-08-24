@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+from contextlib import nullcontext
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -245,6 +246,12 @@ def test_two_week_update_queries_once_saves_raw_first_and_enriches_market(
     monkeypatch.setattr(scada, "PROCESSED_SCADA_DIR", processed_dir)
     monkeypatch.setattr(scada, "DAILY_DIR", daily_dir)
     monkeypatch.setattr(scada, "LOCK_FILE", tmp_path / ".pipeline.lock")
+    monkeypatch.setattr(scada, "azure_pipeline_lease", lambda **_kwargs: nullcontext())
+    monkeypatch.setattr(
+        scada,
+        "sync_market_daily_cache",
+        lambda **_kwargs: calls.append("sync_market") or {day},
+    )
     monkeypatch.setattr(scada, "restore_raw_from_azure", lambda *_args: False)
 
     market_file = daily_dir / "2026" / "2026-07-01.parquet"
@@ -280,6 +287,13 @@ def test_two_week_update_queries_once_saves_raw_first_and_enriches_market(
         calls.append(("upload", blob_name))
 
     monkeypatch.setattr(scada, "upload_file_to_blob", fake_upload)
+    monkeypatch.setattr(
+        scada,
+        "upload_market_daily_file",
+        lambda local_file, upload_day: calls.append(
+            ("upload_market", upload_day, Path(local_file).name)
+        ),
+    )
 
     monthly_file = monthly_dir / "2026" / "2026-07.csv"
     ytd_file = export_dir / "2026_ytd.csv"
@@ -317,6 +331,11 @@ def test_two_week_update_queries_once_saves_raw_first_and_enriches_market(
         ("upload", "scada/processed/2026/2026-07-01.parquet")
     )
     assert raw_upload_index < processed_upload_index
+    market_upload_index = calls.index(
+        ("upload_market", day, "2026-07-01.parquet")
+    )
+    rebuild_month_index = calls.index(("rebuild_month", 2026, 7))
+    assert processed_upload_index < market_upload_index < rebuild_month_index
 
     enriched = pd.read_parquet(market_file)
     assert "delivered_volume_mwh" in enriched.columns
