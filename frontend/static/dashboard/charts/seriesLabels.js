@@ -7,7 +7,7 @@ export const SERIES_LABELS = {
   },
   revenue: {
     epex: "EPEX revenue",
-    imbalance: "Total imbalance revenue",
+    imbalance: "Imbalance settlement cash flow",
     total: "Total revenue",
   },
   prices: {

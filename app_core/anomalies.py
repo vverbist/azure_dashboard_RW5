@@ -57,7 +57,7 @@ def build_anomaly_table(
         metric_value = row.get(metric, np.nan)
         if metric == "imbalance_total_revenue":
             direction = "positive" if metric_value >= 0 else "negative"
-            parts.append(f"Imbalance revenue is {format_value(metric_value, CURRENCY_UNIT)} ({direction}).")
+            parts.append(f"Imbalance settlement cash flow is {format_value(metric_value, CURRENCY_UNIT)} ({direction}).")
             if "imbalance_volume_mwh_calc" in row:
                 imbalance_direction = "long" if row["imbalance_volume_mwh_calc"] >= 0 else "short"
                 parts.append(f"Net imbalance: {format_value(row['imbalance_volume_mwh_calc'], 'MWh')} ({imbalance_direction}).")
@@ -228,7 +228,7 @@ def _event_record(
         "Short imbalance volume": format_value(short_volume, "MWh"),
         "Total revenue": format_value(total_revenue, CURRENCY_UNIT),
         "EPEX-only revenue": format_value(epex_revenue, CURRENCY_UNIT),
-        "Imbalance revenue": format_value(imbalance_revenue, CURRENCY_UNIT),
+        "Imbalance settlement cash flow": format_value(imbalance_revenue, CURRENCY_UNIT),
         "Imbalance price": imbalance_price,
         "Avg EPEX price": format_value(avg_epex, PRICE_UNIT),
         "Min EPEX price": format_value(min_epex, PRICE_UNIT),
@@ -253,10 +253,10 @@ def build_anomaly_event_tables(df: pd.DataFrame, time_col: str, row_count: int =
             negative_threshold = negative_revenue.quantile(0.05)
             specs.append({
                 "key": "negative-imbalance-revenue-events",
-                "label": "Large negative imbalance revenue events",
-                "description": "Consecutive periods with strongly negative imbalance revenue.",
+                "label": "Large negative imbalance settlement events",
+                "description": "Consecutive periods with strongly negative imbalance settlement cash flow.",
                 "mask": source["imbalance_total_revenue"] <= negative_threshold,
-                "driver": "Large negative imbalance revenue",
+                "driver": "Large negative imbalance settlement cash flow",
                 "impact_col": "imbalance_total_revenue",
                 "impact_unit": CURRENCY_UNIT,
                 "suggested_check": "Inspect delivered-versus-nominated volume, imbalance direction, and short/long imbalance prices around the event.",
@@ -266,13 +266,13 @@ def build_anomaly_event_tables(df: pd.DataFrame, time_col: str, row_count: int =
             positive_threshold = positive_revenue.quantile(0.95)
             specs.append({
                 "key": "positive-imbalance-revenue-events",
-                "label": "Large positive imbalance revenue events",
-                "description": "Consecutive periods with strongly positive imbalance revenue.",
+                "label": "Large positive imbalance settlement events",
+                "description": "Consecutive periods with strongly positive imbalance settlement cash flow.",
                 "mask": source["imbalance_total_revenue"] >= positive_threshold,
-                "driver": "Large positive imbalance revenue",
+                "driver": "Large positive imbalance settlement cash flow",
                 "impact_col": "imbalance_total_revenue",
                 "impact_unit": CURRENCY_UNIT,
-                "suggested_check": "Inspect whether long or short imbalance exposure created upside and whether the pattern is repeatable.",
+                "suggested_check": "Inspect the long or short exposure and use gain/loss versus day-ahead to judge whether the settlement cash flow created economic value.",
             })
 
     if "epex_revenue" in source.columns:

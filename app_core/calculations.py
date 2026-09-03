@@ -114,6 +114,14 @@ def add_diagnostic_columns(df: pd.DataFrame) -> pd.DataFrame:
         out["abs_imbalance_volume_mwh_calc"] = out["imbalance_volume_mwh_calc"].abs()
     if {"total_revenue", "epex_revenue"}.issubset(out.columns):
         out["revenue_vs_epex_calc"] = out["total_revenue"] - out["epex_revenue"]
+    if {"delivered_volume_mwh", "epex_eur_per_mwh"}.issubset(out.columns):
+        out["delivered_day_ahead_value_calc"] = (
+            out["delivered_volume_mwh"] * out["epex_eur_per_mwh"]
+        )
+    if {"total_revenue", "delivered_day_ahead_value_calc"}.issubset(out.columns):
+        out["imbalance_gain_loss_vs_day_ahead_calc"] = (
+            out["total_revenue"] - out["delivered_day_ahead_value_calc"]
+        )
     if {"total_revenue", "delivered_volume_mwh"}.issubset(out.columns):
         out["capture_total_calc"] = out["total_revenue"] / out["delivered_volume_mwh"].replace(0, np.nan)
     if {"epex_revenue", "nominated_volume_mwh"}.issubset(out.columns):
@@ -127,9 +135,34 @@ def make_variance_table(df: pd.DataFrame) -> pd.DataFrame:
     rows = []
     total = df.sum(numeric_only=True, min_count=1)
     if {"total_revenue", "epex_revenue"}.issubset(df.columns):
-        total_rev = total.get("total_revenue", np.nan)
-        epex_rev = total.get("epex_revenue", np.nan)
-        rows.append({"Metric": "Revenue vs EPEX", "Value": total_rev - epex_rev, "Unit": CURRENCY_UNIT, "Interpretation": "Positive means total revenue exceeded nominated EPEX revenue."})
+        if "revenue_vs_epex_calc" in df.columns:
+            settlement_cash_flow = df["revenue_vs_epex_calc"].sum(min_count=1)
+        else:
+            settlement_cash_flow = (
+                df["total_revenue"] - df["epex_revenue"]
+            ).sum(min_count=1)
+        rows.append({
+            "Metric": "Imbalance settlement cash flow",
+            "Value": settlement_cash_flow,
+            "Unit": CURRENCY_UNIT,
+            "Interpretation": "Cash settled on delivered-minus-nominated volume; this is not the economic gain or loss from imbalance.",
+        })
+    if {"total_revenue", "delivered_volume_mwh", "epex_eur_per_mwh"}.issubset(df.columns):
+        if "imbalance_gain_loss_vs_day_ahead_calc" in df.columns:
+            gain_loss_vs_day_ahead = df[
+                "imbalance_gain_loss_vs_day_ahead_calc"
+            ].sum(min_count=1)
+        else:
+            gain_loss_vs_day_ahead = (
+                df["total_revenue"]
+                - df["delivered_volume_mwh"] * df["epex_eur_per_mwh"]
+            ).sum(min_count=1)
+        rows.append({
+            "Metric": "Imbalance gain/loss vs day-ahead",
+            "Value": gain_loss_vs_day_ahead,
+            "Unit": CURRENCY_UNIT,
+            "Interpretation": "Total revenue minus actual delivered volume valued at each interval's EPEX price; positive is a gain and negative is a cost.",
+        })
     if {"delivered_volume_mwh", "nominated_volume_mwh"}.issubset(df.columns):
         delivered = total.get("delivered_volume_mwh", np.nan)
         nominated = total.get("nominated_volume_mwh", np.nan)

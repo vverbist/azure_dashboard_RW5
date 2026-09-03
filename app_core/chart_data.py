@@ -81,11 +81,11 @@ def revenue_bridge_components(summary: pd.DataFrame) -> list[dict]:
     if pd.notna(epex):
         components.append(("EPEX", epex, "relative"))
     if pd.notna(long):
-        components.append(("Long imbalance", long, "relative"))
+        components.append(("Long imbalance settlement", long, "relative"))
     if pd.notna(short):
-        components.append(("Short imbalance", short, "relative"))
+        components.append(("Short imbalance settlement", short, "relative"))
     if pd.isna(long) and pd.isna(short) and pd.notna(imbalance_total):
-        components.append(("Imbalance", imbalance_total, "relative"))
+        components.append(("Imbalance settlement", imbalance_total, "relative"))
     if pd.notna(total):
         components.append(("Total", total, "total"))
 

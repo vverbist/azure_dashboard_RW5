@@ -2,8 +2,8 @@ import { getElement } from "../dom.js";
 import { chartLayout, getPlotly, showChartEmpty } from "./layout.js";
 
 const CHART_METRIC_BY_KEY = {
-  "negative-imbalance-revenue-events": "Total imbalance revenue",
-  "positive-imbalance-revenue-events": "Total imbalance revenue",
+  "negative-imbalance-revenue-events": "Imbalance settlement cash flow",
+  "positive-imbalance-revenue-events": "Imbalance settlement cash flow",
   "negative-epex-revenue-events": "EPEX revenue",
 };
 

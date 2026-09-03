@@ -8,7 +8,7 @@ const MONTHLY_GROUP_STARTS = new Set([
   "Delivered volume",
   "Greenchoice benchmark",
   "EPEX-only revenue",
-  "Imbalance revenue",
+  "Imbalance settlement cash flow",
   "Below-strike revenue",
   
 ]);

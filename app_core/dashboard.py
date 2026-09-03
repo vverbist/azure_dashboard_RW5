@@ -123,8 +123,10 @@ def make_delta_help(value, positive_text: str, negative_text: str) -> str:
 
 def build_executive_narrative(df: pd.DataFrame, summary_table: pd.DataFrame, variance_table: pd.DataFrame) -> list[dict]:
     total_revenue = summary_table.loc["Revenue", "Total"] if "Total" in summary_table.columns else np.nan
-    rev_vs_epex_series = variance_table.loc[variance_table["Metric"] == "Revenue vs EPEX", "Value"] if not variance_table.empty else pd.Series(dtype=float)
-    rev_vs_epex = rev_vs_epex_series.iloc[0] if len(rev_vs_epex_series) else np.nan
+    settlement_series = variance_table.loc[variance_table["Metric"] == "Imbalance settlement cash flow", "Value"] if not variance_table.empty else pd.Series(dtype=float)
+    settlement_cash_flow = settlement_series.iloc[0] if len(settlement_series) else np.nan
+    gain_loss_series = variance_table.loc[variance_table["Metric"] == "Imbalance gain/loss vs day-ahead", "Value"] if not variance_table.empty else pd.Series(dtype=float)
+    gain_loss_vs_day_ahead = gain_loss_series.iloc[0] if len(gain_loss_series) else np.nan
     rev_vs_gc = df["revenue_vs_greenchoice_calc"].sum(min_count=1) if "revenue_vs_greenchoice_calc" in df.columns else np.nan
     strike_rev = df["strike_nomination_revenue"].sum(min_count=1) if "strike_nomination_revenue" in df.columns else np.nan
     below_count = int(df["is_below_strike"].sum()) if "is_below_strike" in df.columns else 0
@@ -132,9 +134,12 @@ def build_executive_narrative(df: pd.DataFrame, summary_table: pd.DataFrame, var
     bullets = []
     if pd.notna(total_revenue):
         bullets.append({"metric": "total_revenue", "text": f"Total revenue for the selected period is {format_value(total_revenue, '€')}."})
-    if pd.notna(rev_vs_epex):
-        direction = "above" if rev_vs_epex >= 0 else "below"
-        bullets.append({"metric": "revenue_vs_epex", "text": f"Actual revenue is {format_value(abs(rev_vs_epex), '€')} {direction} EPEX nomination revenue."})
+    if pd.notna(settlement_cash_flow):
+        direction = "positive" if settlement_cash_flow >= 0 else "negative"
+        bullets.append({"metric": "imbalance_settlement_cash_flow", "text": f"Imbalance settlement cash flow is {format_value(abs(settlement_cash_flow), '€')} {direction}."})
+    if pd.notna(gain_loss_vs_day_ahead):
+        outcome = "gain" if gain_loss_vs_day_ahead >= 0 else "cost"
+        bullets.append({"metric": "imbalance_gain_loss_vs_day_ahead", "text": f"Against actual delivered volume valued at day-ahead prices, imbalance produced a {format_value(abs(gain_loss_vs_day_ahead), '€')} {outcome}."})
     if pd.notna(rev_vs_gc):
         direction = "above" if rev_vs_gc >= 0 else "below"
         bullets.append({"metric": "revenue_vs_greenchoice", "text": f"Actual revenue is {format_value(abs(rev_vs_gc), '€')} {direction} the Greenchoice benchmark."})
@@ -149,6 +154,7 @@ def build_headline_kpis(df: pd.DataFrame, summary_table: pd.DataFrame) -> list[d
     delivered_volume = summary_table.loc["Volume", "Total"]
     nominated_volume = summary_table.loc["Volume", "EPEX"]
     rev_vs_epex = df["revenue_vs_epex_calc"].sum(min_count=1) if "revenue_vs_epex_calc" in df.columns else np.nan
+    imbalance_gain_loss = df["imbalance_gain_loss_vs_day_ahead_calc"].sum(min_count=1) if "imbalance_gain_loss_vs_day_ahead_calc" in df.columns else np.nan
     rev_vs_greenchoice = df["revenue_vs_greenchoice_calc"].sum(min_count=1) if "revenue_vs_greenchoice_calc" in df.columns else np.nan
     strike_revenue = df["strike_nomination_revenue"].sum(min_count=1) if "strike_nomination_revenue" in df.columns else np.nan
     below_strike_count = int(df["is_below_strike"].sum()) if "is_below_strike" in df.columns else 0
@@ -156,7 +162,8 @@ def build_headline_kpis(df: pd.DataFrame, summary_table: pd.DataFrame) -> list[d
     return [
         {"key": "total_revenue", "label": "Total revenue", "value": total_revenue, "formatted": format_value(total_revenue, "€")},
         {"key": "actual_vs_greenchoice", "label": "Actual vs Greenchoice", "value": rev_vs_greenchoice, "formatted": format_value(rev_vs_greenchoice, "€"), "status": make_status_label(rev_vs_greenchoice)},
-        {"key": "actual_vs_epex", "label": "Actual vs EPEX", "value": rev_vs_epex, "formatted": format_value(rev_vs_epex, "€"), "status": make_status_label(rev_vs_epex)},
+        {"key": "imbalance_gain_loss_vs_day_ahead", "label": "Imbalance gain/loss vs day-ahead", "value": imbalance_gain_loss, "formatted": format_value(imbalance_gain_loss, "€"), "status": make_status_label(imbalance_gain_loss)},
+        {"key": "imbalance_settlement_cash_flow", "label": "Imbalance settlement cash flow", "value": rev_vs_epex, "formatted": format_value(rev_vs_epex, "€"), "status": make_status_label(rev_vs_epex)},
         {"key": "below_strike_revenue", "label": "Below-strike revenue", "value": strike_revenue, "formatted": format_value(strike_revenue, "€"), "status": f"{below_strike_count:,} periods"},
         {"key": "total_capture", "label": "Total capture", "value": total_capture, "formatted": format_value(total_capture, "€/MWh")},
         {"key": "delivered_volume", "label": "Delivered volume", "value": delivered_volume, "formatted": format_value(delivered_volume, "MWh", decimals=0)},

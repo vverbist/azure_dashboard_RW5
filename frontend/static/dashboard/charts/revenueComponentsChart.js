@@ -3,8 +3,8 @@ import { applyInspectionRange, chartLayout, getPlotly, showChartEmpty } from "./
 import { CHART_COLORS } from "./chartTheme.js";
 import { SERIES_LABELS } from "./seriesLabels.js";
 
-const POSITIVE_IMBALANCE_LABEL = "Positive imbalance revenue";
-const NEGATIVE_IMBALANCE_LABEL = "Negative imbalance revenue";
+const POSITIVE_IMBALANCE_LABEL = "Positive imbalance settlement";
+const NEGATIVE_IMBALANCE_LABEL = "Negative imbalance settlement";
 
 export function renderRevenueComponentsChart(payload, targetId, options = {}) {
   const target = getElement(targetId);
