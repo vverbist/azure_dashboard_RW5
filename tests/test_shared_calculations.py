@@ -68,6 +68,28 @@ def test_summary_table_calculation():
     assert summary.loc["Capture price", "Total"] == pytest.approx(1120.0 / 30.0)
 
 
+def test_imbalance_economics_distinguishes_cash_flow_from_gain_loss():
+    df = add_diagnostic_columns(sample_df())
+
+    assert df["revenue_vs_epex_calc"].sum() == pytest.approx(0.0)
+    assert df["delivered_day_ahead_value_calc"].sum() == pytest.approx(1180.0)
+    assert df["imbalance_gain_loss_vs_day_ahead_calc"].sum() == pytest.approx(-60.0)
+
+    variance = make_variance_table(df).set_index("Metric")
+    assert variance.loc["Imbalance settlement cash flow", "Value"] == pytest.approx(0.0)
+    assert variance.loc["Imbalance gain/loss vs day-ahead", "Value"] == pytest.approx(-60.0)
+
+
+def test_imbalance_economics_excludes_incomplete_intervals_consistently():
+    source = sample_df()
+    source.loc[2, "total_revenue"] = np.nan
+    df = add_diagnostic_columns(source)
+
+    variance = make_variance_table(df).set_index("Metric")
+    assert variance.loc["Imbalance settlement cash flow", "Value"] == pytest.approx(40.0)
+    assert variance.loc["Imbalance gain/loss vs day-ahead", "Value"] == pytest.approx(-10.0)
+
+
 def test_greenchoice_benchmark_calculation():
     df = add_greenchoice_benchmark(sample_df(), "delivered_volume_mwh", "epex_eur_per_mwh", 0.17, 10.0, 0.0)
 
@@ -126,7 +148,7 @@ def test_anomaly_event_grouping():
     assert events.iloc[0]["Periods"] == 2
     assert events.iloc[0]["_event_start"] == "2026-01-01T00:00:00"
     assert events.iloc[0]["_event_end"] == "2026-01-01T00:30:00"
-    assert events.iloc[0]["Likely driver"] == "Large negative imbalance revenue"
+    assert events.iloc[0]["Likely driver"] == "Large negative imbalance settlement cash flow"
     assert "lasted 0.50 h" in events.iloc[0]["What happened?"]
 
 
@@ -143,6 +165,11 @@ def test_monthly_kpi_table_generation():
     epex_row = kpi[kpi["KPI"] == "EPEX-only revenue"].iloc[0]
     assert epex_row["Jan 2026"] == f"{CURRENCY_UNIT}1,170"
 
+    settlement_row = kpi[kpi["KPI"] == "Imbalance settlement cash flow"].iloc[0]
+    gain_loss_row = kpi[kpi["KPI"] == "Imbalance gain/loss vs day-ahead"].iloc[0]
+    assert settlement_row["Jan 2026"] == f"{CURRENCY_UNIT}40"
+    assert gain_loss_row["Jan 2026"] == f"{CURRENCY_UNIT}-10"
+
     short_volume_row = kpi[kpi["KPI"] == "Imbalance volume short"].iloc[0]
     long_volume_row = kpi[kpi["KPI"] == "Imbalance volume long"].iloc[0]
     assert short_volume_row["Feb 2026"] == "2 MWh"
@@ -156,6 +183,8 @@ def test_monthly_kpi_table_generation():
     assert "Greenchoice benchmark" in kpi["KPI"].tolist()
     assert numeric.loc[numeric["Month"] == "2026-01", "Total revenue EUR"].iloc[0] == pytest.approx(1210.0)
     assert numeric.loc[numeric["Month"] == "2026-01", "Total capture price EUR/MWh"].iloc[0] == pytest.approx(1210.0 / 22.0)
+    assert numeric.loc[numeric["Month"] == "2026-02", "Imbalance settlement cash flow EUR"].iloc[0] == pytest.approx(-40.0)
+    assert numeric.loc[numeric["Month"] == "2026-02", "Imbalance gain/loss vs day-ahead EUR"].iloc[0] == pytest.approx(-50.0)
     assert numeric.loc[numeric["Month"] == "2026-02", "Below-strike hours"].iloc[0] == pytest.approx(0.25)
 
 
@@ -167,6 +196,8 @@ def test_prepare_dashboard_frames_applies_diagnostics_to_both_frames():
     assert len(full) == 3  # January and February
     for frame in (selected, full):
         assert "imbalance_volume_mwh_calc" in frame.columns
+        assert "delivered_day_ahead_value_calc" in frame.columns
+        assert "imbalance_gain_loss_vs_day_ahead_calc" in frame.columns
         assert "greenchoice_revenue" in frame.columns
         assert "is_below_strike" in frame.columns
 
@@ -183,6 +214,8 @@ def test_build_headline_kpis():
     kpis = {kpi["key"]: kpi for kpi in build_headline_kpis(df, summary)}
 
     assert kpis["total_revenue"]["value"] == pytest.approx(1120.0)
+    assert kpis["imbalance_settlement_cash_flow"]["value"] == pytest.approx(0.0)
+    assert kpis["imbalance_gain_loss_vs_day_ahead"]["value"] == pytest.approx(-60.0)
     assert kpis["delivered_volume"]["value"] == pytest.approx(30.0)
     assert kpis["nominated_volume"]["value"] == pytest.approx(31.0)
 
@@ -194,7 +227,8 @@ def test_build_executive_narrative():
     metrics = [bullet["metric"] for bullet in build_executive_narrative(df, summary, variance)]
 
     assert "total_revenue" in metrics
-    assert "revenue_vs_epex" in metrics
+    assert "imbalance_settlement_cash_flow" in metrics
+    assert "imbalance_gain_loss_vs_day_ahead" in metrics
 
 
 def test_revenue_bridge_components():
