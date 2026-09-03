@@ -89,16 +89,18 @@ def run_locked_update():
         upload_exports=False,
     )
 
-    failed_days = sorted(set(backfill_failed) | set(repair_failed))
-    touched_days = set(changed_days)
+    failed_day_set = set(backfill_failed) | set(repair_failed)
+    failed_days = sorted(failed_day_set)
+    publish_days = set(changed_days)
     d = start_day
     while d <= yesterday:
         if d not in backfill_failed:
-            touched_days.add(d)
+            publish_days.add(d)
         d += timedelta(days=1)
+    publish_days.difference_update(failed_day_set)
 
     publish_failed = False
-    for day in sorted(touched_days):
+    for day in sorted(publish_days):
         try:
             upload_market_daily_file(market_daily_file(day), day)
             logger.info(f"Uploaded canonical market daily partition: {day}")
@@ -106,15 +108,27 @@ def run_locked_update():
             logger.error(f"Failed to upload market daily partition {day}: {exc}")
             publish_failed = True
 
-    if failed_days or publish_failed:
+    if publish_failed:
         logger.error(
             "Daily partitions were not published completely; aggregate exports "
             f"were left unchanged. Failed days: {failed_days}"
         )
         sys.exit(1)
 
-    touched_months = {(d.year, d.month) for d in touched_days}
-    touched_years = {d.year for d in touched_days}
+    aggregate_days = set(publish_days)
+    if failed_days:
+        # A source gap must not prevent later canonical partitions from reaching
+        # the monthly/YTD exports. This also catches up a machine that synced
+        # those later partitions from Azure after an earlier partial run.
+        first_failed_day = failed_days[0]
+        aggregate_days.update(
+            day
+            for day in remote_days
+            if first_failed_day < day <= yesterday and day not in failed_day_set
+        )
+
+    touched_months = {(d.year, d.month) for d in aggregate_days}
+    touched_years = {d.year for d in aggregate_days}
 
     export_failed = False
 
@@ -136,6 +150,14 @@ def run_locked_update():
 
     if export_failed:
         logger.error(f"Completed with failures. Failed days: {failed_days}")
+        sys.exit(1)
+
+    if failed_days:
+        logger.error(
+            "Completed with unresolved source-data days that will be retried; "
+            "successful later days were published and aggregated. "
+            f"Failed days: {failed_days}"
+        )
         sys.exit(1)
 
     logger.info("Done")

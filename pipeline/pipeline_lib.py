@@ -10,6 +10,7 @@ for the entry points that actually run it.
 
 import io
 import logging
+import re
 import time
 import warnings
 from datetime import date, timedelta
@@ -19,6 +20,7 @@ from pathlib import Path
 import pandas as pd
 import requests
 from entsoe import EntsoePandasClient
+from entsoe.exceptions import NoMatchingDataError
 from influxdb_client import InfluxDBClient
 from influxdb_client.client.warnings import MissingPivotFunction
 
@@ -50,6 +52,21 @@ from config import (
 
 
 logger = logging.getLogger("pipeline")
+
+_SECURITY_TOKEN_PATTERN = re.compile(
+    r"(securityToken=)[^&\s]+",
+    flags=re.IGNORECASE,
+)
+
+
+def exception_summary(exc: BaseException) -> str:
+    """Return a useful, credential-safe description for pipeline logs."""
+    message = _SECURITY_TOKEN_PATTERN.sub(
+        r"\1[REDACTED]",
+        str(exc).strip(),
+    )
+    exception_name = type(exc).__name__
+    return f"{exception_name}: {message}" if message else exception_name
 
 
 def configure_logging(script_name: str) -> logging.Logger:
@@ -95,7 +112,8 @@ def fetch_with_retry(label: str, func, *args, **kwargs):
         except Exception as exc:
             last_exc = exc
             logger.warning(
-                f"{label} failed (attempt {attempt}/{HTTP_MAX_RETRIES}): {exc}"
+                f"{label} failed (attempt {attempt}/{HTTP_MAX_RETRIES}): "
+                f"{exception_summary(exc)}"
             )
             if attempt < HTTP_MAX_RETRIES:
                 time.sleep(HTTP_RETRY_BACKOFF_SECONDS * attempt)
@@ -372,11 +390,17 @@ def fetch_eview_delivered_utc_15min(from_date, to_date):
 def fetch_entsoe_prices_utc_15min(country_code, start_utc, end_utc):
     client = EntsoePandasClient(api_key=ENTSOE_TOKEN)
 
-    da = client.query_day_ahead_prices(
-        country_code,
-        start=start_utc,
-        end=end_utc,
-    )
+    try:
+        da = client.query_day_ahead_prices(
+            country_code,
+            start=start_utc,
+            end=end_utc,
+        )
+    except NoMatchingDataError as exc:
+        raise RuntimeError(
+            "ENTSO-E has no matching day-ahead price data for "
+            f"{country_code} from {start_utc} to {end_utc}"
+        ) from exc
 
     da = da.to_frame("epex_eur_per_mwh")
     da.index = pd.to_datetime(da.index, utc=True)
@@ -388,12 +412,18 @@ def fetch_entsoe_prices_utc_15min(country_code, start_utc, end_utc):
         .rename(columns={"index": "timestamp_utc"})
     )
 
-    ib = client.query_imbalance_prices(
-        country_code,
-        start=start_utc,
-        end=end_utc,
-        psr_type=None,
-    )
+    try:
+        ib = client.query_imbalance_prices(
+            country_code,
+            start=start_utc,
+            end=end_utc,
+            psr_type=None,
+        )
+    except NoMatchingDataError as exc:
+        raise RuntimeError(
+            "ENTSO-E has no matching imbalance price data for "
+            f"{country_code} from {start_utc} to {end_utc}"
+        ) from exc
 
     ib.index = pd.to_datetime(ib.index, utc=True)
 
@@ -766,7 +796,7 @@ def backfill_days(start_day: date, end_day: date, overwrite: bool = False) -> li
         try:
             generate_day(d, overwrite=overwrite)
         except Exception as e:
-            logger.error(f"Failed for {d}: {e}")
+            logger.error(f"Failed for {d}: {exception_summary(e)}")
             failed_days.append(d)
 
         d += timedelta(days=1)
@@ -1224,7 +1254,7 @@ def repair_nan_timestamps_for_period(
                 changed_days.add(d)
 
         except Exception as e:
-            logger.error(f"Failed to repair {d}: {e}")
+            logger.error(f"Failed to repair {d}: {exception_summary(e)}")
             failed_days.append(d)
 
         d += timedelta(days=1)
